@@ -20,6 +20,7 @@ interface AppState {
   // T1: renamed from isMassCrisis → isMaxEmergency for clarity
   isMaxEmergency: boolean;
   auditLog: AuditEntry[];
+  searchFilter: string;
 
   initSystem:       () => void;
   fileReport:       (district: string, deptShort: string, type: string, desc: string, priority: number, secondary?: string, icsScore?: number) => void;
@@ -35,6 +36,7 @@ interface AppState {
   addAudit:         (msg: string, type?: AuditEntry['type']) => void;
 
   setSelectedNode: (n: string | null) => void;
+  setSearchFilter: (q: string) => void;
   toggleTheme:     () => void;
   setLang:         (l: 'en' | 'ar') => void;
 }
@@ -47,6 +49,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   lang:           'en',
   isMaxEmergency: false,
   auditLog:       [],
+  searchFilter:   '',
 
   addAudit: (msg, type = 'info') => {
     const entry: AuditEntry = {
@@ -126,7 +129,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({ version: s.version + 1 }));
   },
 
-  // T1: Maximum Emergency toggle
   toggleMaxEmergency: () => {
     const newVal = !get().isMaxEmergency;
     set({ isMaxEmergency: newVal });
@@ -137,6 +139,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setSelectedNode: (n) => set({ selectedNode: n }),
+  setSearchFilter: (q) => set({ searchFilter: q }),
 
   toggleTheme: () =>
     set((s) => {

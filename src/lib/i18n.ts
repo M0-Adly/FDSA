@@ -6,6 +6,17 @@ const resources = {
     translation: {
       // ── Core UI ───────────────────────────────────────────────────────────────
       app_title:          'National Crisis Management System',
+
+      // ── 1.1 Mini Stats ───────────────────────────────────────────────────────
+      stats_active:   'Active Reports',
+      stats_pending:  'Pending Reports',
+      stats_capacity: 'Free Capacity',
+
+      // ── 1.2 Search ───────────────────────────────────────────────────────────
+      search_placeholder:  '🔍 Search by Report ID, Type, or Description…',
+      search_results:      'results found',
+      search_no_results:   'No reports match your search.',
+
       system_hierarchy:   'System Hierarchy',
       click_to_select:    'Click a department node to view details.',
       system_ready:       'System Ready',
@@ -103,15 +114,35 @@ const resources = {
       // ── Chatbot ───────────────────────────────────────────────────────────────
       chatbot: {
         title:        'ARIA Assistant',
-        placeholder:  'Ask ARIA something...',
+        subtitle:     'AI-Powered Crisis Intelligence',
+        placeholder:  'Type 1–5 or ask a question…',
+        type_hint:    'Type a number (1–5) or ask anything.',
+        show_menu:    'Show quick actions',
         send:         'Send',
-        greeting:     'Hello! I am ARIA. Ask me about system stats, pending reports, or highest priority issues.',
-        fallback:     "I didn't catch that. Try: 'How many pending reports in First District?' or 'What is the highest priority report?'",
+
+        greeting:    'Hello! I am ARIA — your crisis intelligence assistant. Choose a quick action or ask me anything.',
+        quick_intro: 'What would you like me to do? (Type a number or click)',
+
+        // Quick-action labels
+        qa1_label: '📊 Show System Summary',
+        qa2_label: '🔥 Find Highest Priority Pending Report',
+        qa3_label: '⚠️  Show Most Loaded Department',
+        qa4_label: '🚨 Escalate All Pending Reports Now',
+        qa5_label: '🌐 Switch Language (العربية / English)',
+
+        // Quick-action results
+        qa1_result: 'System Summary',
+        qa2_result: 'Highest Priority Pending Report',
+        qa3_result: '{{dept}} has the most load ({{count}} total reports). Consider transferring a pending report.',
+        qa4_result: 'Escalation complete. {{count}} reports transferred to sibling districts.',
+        total:      'TOTALS',
+
+        fallback:     "I didn't catch that. Type 1–5 to use quick actions, or ask about pending/priority/status.",
         pending_d1:    'There are {{count}} pending reports in the First District.',
         pending_d2:    'There are {{count}} pending reports in the Second District.',
         pending_total: 'Total pending reports: {{count}}',
-        highest_report:'Highest priority report is #{{id}} in {{dept}} with Priority {{priority}}.',
-        no_pending:    'There are no pending reports in the system.',
+        highest_report:'Highest priority: #{{id}} in {{dept}} — Priority {{priority}}.',
+        no_pending:    'No pending reports found in the system. ✅',
         sim_status:    'Current simulation step: {{step}}.',
       },
 
@@ -159,6 +190,17 @@ const resources = {
     translation: {
       // ── Core UI ───────────────────────────────────────────────────────────────
       app_title:          'النظام الوطني لإدارة الأزمات',
+
+      // ── 1.1 Mini Stats ───────────────────────────────────────────────────────
+      stats_active:   'البلاغات النشطة',
+      stats_pending:  'بلاغات معلقة',
+      stats_capacity: 'السعة المتاحة',
+
+      // ── 1.2 Search ───────────────────────────────────────────────────────────
+      search_placeholder:  '🔍 بحث برقم البلاغ أو النوع أو الوصف…',
+      search_results:      'نتيجة',
+      search_no_results:   'لا توجد بلاغات تطابق بحثك.',
+
       system_hierarchy:   'هيكل النظام',
       click_to_select:    'انقر على عقدة قسم لعرض التفاصيل.',
       system_ready:       'النظام جاهز',
@@ -255,15 +297,35 @@ const resources = {
       // ── Chatbot ───────────────────────────────────────────────────────────────
       chatbot: {
         title:        'المساعد ARIA',
-        placeholder:  'اسأل ARIA عن شيء...',
+        subtitle:     'ذكاء اصطناعي لإدارة الأزمات',
+        placeholder:  'اكتب رقماً (1–5) أو اسألني…',
+        type_hint:    'اكتب رقماً (1–5) أو اطرح أي سؤال.',
+        show_menu:    'عرض الإجراءات السريعة',
         send:         'إرسال',
-        greeting:     'مرحباً! أنا أريا. اسألني عن إحصائيات النظام أو البلاغات قيد الانتظار أو الأعلى أولوية.',
-        fallback:     'لم أفهم. جرب: "كم عدد البلاغات في المنطقة الأولى؟"',
+
+        greeting:    'مرحباً! أنا أريا — مساعدك الذكي لإدارة الأزمات. اختر إجراءً سريعاً أو اسألني أي شيء.',
+        quick_intro: 'ماذا تريد أن أفعل؟ (اكتب رقماً أو انقر)',
+
+        // Quick-action labels
+        qa1_label: '📊 عرض ملخص النظام',
+        qa2_label: '🔥 أعلى بلاغ معلق أولوية',
+        qa3_label: '⚠️  أكثر قسم مثقلاً بالعمل',
+        qa4_label: '🚨 تصعيد جميع البلاغات المعلقة الآن',
+        qa5_label: '🌐 تبديل اللغة (English / العربية)',
+
+        // Quick-action results
+        qa1_result: 'ملخص النظام',
+        qa2_result: 'أعلى بلاغ معلق أولوية',
+        qa3_result: '{{dept}} الأكثر ضغطاً ({{count}} بلاغ إجمالاً). يُنصح بنقل بلاغ معلق.',
+        qa4_result: 'اكتمل التصعيد. تم نقل {{count}} بلاغ إلى المناطق المجاورة.',
+        total:      'الإجماليات',
+
+        fallback:     'لم أفهم. اكتب رقماً (1–5) للإجراءات السريعة، أو اسأل عن الانتظار / الأولوية / الحالة.',
         pending_d1:    'يوجد {{count}} بلاغ قيد الانتظار في المنطقة الأولى.',
         pending_d2:    'يوجد {{count}} بلاغ قيد الانتظار في المنطقة الثانية.',
         pending_total: 'إجمالي البلاغات قيد الانتظار: {{count}}',
-        highest_report:'أعلى بلاغ أولوية هو #{{id}} في {{dept}} بأولوية {{priority}}.',
-        no_pending:    'لا توجد بلاغات قيد الانتظار.',
+        highest_report:'الأعلى أولوية: #{{id}} في {{dept}} — أولوية {{priority}}.',
+        no_pending:    'لا توجد بلاغات معلقة في النظام. ✅',
         sim_status:    'خطوة المحاكاة الحالية: {{step}}.',
       },
 

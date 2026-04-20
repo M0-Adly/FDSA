@@ -108,7 +108,7 @@ export function DepartmentDashboard() {
   const { t } = useTranslation();
   const {
     system, version, selectedNode, setSelectedNode,
-    resolveReport, fileReport, transferPending, forceOngoing, isMaxEmergency,
+    resolveReport, fileReport, transferPending, forceOngoing, isMaxEmergency, searchFilter,
   } = useAppStore();
 
   const [showICS,      setShowICS]      = useState(false);
@@ -187,12 +187,26 @@ export function DepartmentDashboard() {
   }
 
   /* ── Department Detail ── */
+  const filterReports = (reports: Report[]) => {
+    if (!searchFilter) return reports;
+    const q = searchFilter.toLowerCase();
+    return reports.filter(r =>
+      r.type.toLowerCase().includes(q) ||
+      r.description.toLowerCase().includes(q) ||
+      String(r.id) === q ||
+      (q === 'ongoing' && r.status === 'Ongoing') ||
+      (q === 'pending' && r.status === 'Pending') ||
+      (q === 'resolved' && r.status === 'Resolved') ||
+      (r.supportingDepts && r.supportingDepts.some(d => d.toLowerCase().includes(q)))
+    );
+  };
+
   // T9: sort ongoing by priority desc before rendering
-  const ongoing = node.ongoingReports.toArray().sort((a, b) => b.priority - a.priority);
+  const ongoing = filterReports(node.ongoingReports.toArray().sort((a, b) => b.priority - a.priority));
   // T9: pending is already sorted by DoublyLinkedList.insertSortedByPriority
-  const pending = node.pendingReports.toArray();
+  const pending = filterReports(node.pendingReports.toArray());
   // T8: resolved column in dept panel — show last 10 only (no filters here)
-  const resolved = node.resolvedArchive.toArray().slice(0, 10);
+  const resolved = filterReports(node.resolvedArchive.toArray()).slice(0, 10);
 
   const deptKey  = node.name.includes('Fire')      ? 'fire'
                  : node.name.includes('Police')    ? 'police'
