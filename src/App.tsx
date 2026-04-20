@@ -6,11 +6,12 @@ import { DepartmentDashboard } from './components/DepartmentDashboard';
 import { Chatbot } from './components/Chatbot';
 import { AuditSidebar } from './components/AuditSidebar';
 import './lib/i18n';
-
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function App() {
   const { initSystem, theme, isMassCrisis } = useAppStore();
+  const { t } = useTranslation();
 
   useEffect(() => {
     initSystem();
@@ -49,7 +50,7 @@ function App() {
             exit={{ height: 0, opacity: 0 }}
             className="bg-red-600 text-white text-[10px] font-black uppercase tracking-[0.3em] flex items-center justify-center py-1 z-50 overflow-hidden"
           >
-            Critical Alert: Mass Crisis Mode Active • Response Thresholds Reduced • Priority Overridden
+            {t('mass_crisis_banner')}
           </motion.div>
         )}
       </AnimatePresence>
@@ -60,11 +61,12 @@ function App() {
           <div className="glass-panel p-4 h-[350px] flex flex-col shadow-xl">
             <h2 className="text-sm font-black mb-4 flex items-center gap-2 uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
               <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-              Hierarchy
+              {t('system_hierarchy')}
             </h2>
             <div className="flex-1 rounded-xl overflow-hidden bg-slate-100 dark:bg-black/20 border dark:border-slate-800">
               <TreeVisualizer />
             </div>
+            <p className="text-xs text-slate-500 mt-2 text-center px-2">{t('click_to_select')}</p>
           </div>
           
           <div className="flex-1 min-h-[300px]">

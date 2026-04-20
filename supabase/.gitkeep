@@ -1,0 +1,2 @@
+/* package.json already has "build": "vite build" */
+/* This file documents Supabase Edge / Storage deployment */

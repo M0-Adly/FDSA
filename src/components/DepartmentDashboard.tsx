@@ -3,78 +3,101 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../lib/store';
 import { type Report, type ICSAssessment, getICSTriage } from '../lib/crisis-system';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, CheckCircle2, Clock, MapPin, X, Shield, Activity, Users, Zap } from 'lucide-react';
+import {
+  AlertCircle, CheckCircle2, Clock, MapPin, X,
+  Shield, Activity, Users, Zap,
+} from 'lucide-react';
 import { ICSModal } from './ICSModal';
 
 export function DepartmentDashboard() {
   const { t } = useTranslation();
-  const { system, version, selectedNode, setSelectedNode, resolveReport, fileReport, isMassCrisis } = useAppStore();
+  const {
+    system, version, selectedNode, setSelectedNode,
+    resolveReport, fileReport, isMassCrisis,
+  } = useAppStore();
 
-  // ICS flow state
-  const [showICS, setShowICS] = useState(false);
-  // After ICS completes, store the result then show the description form
-  const [icsResult, setIcsResult] = useState<{ priority: number; score: number; assessment: ICSAssessment } | null>(null);
+  const [showICS,    setShowICS]    = useState(false);
+  const [icsResult,  setIcsResult]  = useState<{ priority: number; score: number; assessment: ICSAssessment } | null>(null);
   const [showFileForm, setShowFileForm] = useState(false);
-  const [desc, setDesc] = useState('');
+  const [desc,       setDesc]       = useState('');
   const [secondaryDept, setSecondaryDept] = useState('');
 
-  const node = useMemo(() => {
-    if (!selectedNode) return null;
-    return system.findNode(system.root, selectedNode);
+  const node = useMemo(
+    () => (selectedNode ? system.findNode(system.root, selectedNode) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [system, version, selectedNode]);
+    [system, version, selectedNode],
+  );
 
+  /* ── Empty state ── */
   if (!node || node.name === 'Central Crisis System') {
     return (
       <div className="flex-1 glass-panel p-6 flex flex-col items-center justify-center text-slate-500 text-center gap-4">
         <Activity className="w-16 h-16 text-slate-300 animate-pulse" />
         <div>
-          <h2 className="text-xl font-bold text-slate-400">System Ready</h2>
-          <p className="max-w-xs mx-auto">Select a District or Department from the hierarchy tree to monitor real-time status.</p>
+          <h2 className="text-xl font-bold text-slate-400">{t('system_ready')}</h2>
+          <p className="max-w-xs mx-auto text-sm">{t('system_ready_desc')}</p>
         </div>
       </div>
     );
   }
 
-  // ─── District Overview ────────────────────────────────────────────────────
+  /* ── District Overview ── */
   if (node.isDistrict) {
-    const childrenArr = node.children.toArray();
+    const children   = node.children.toArray();
+    const distLabel  = node.name === 'First District' ? t('districts.d1') : t('districts.d2');
+
     return (
       <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2">
         <div className="glass-panel p-6 bg-indigo-600 text-white flex justify-between items-center shadow-xl rounded-2xl">
           <div>
-            <h2 className="text-3xl font-bold flex items-center gap-3"><Shield /> {node.name} Dashboard</h2>
-            <p className="opacity-80 text-sm mt-1">Overview of all 5 critical departments in this jurisdiction.</p>
+            <h2 className="text-3xl font-bold flex items-center gap-3">
+              <Shield /> {distLabel} {t('district_dashboard')}
+            </h2>
+            <p className="opacity-80 text-sm mt-1">{t('district_subtitle')}</p>
           </div>
           <Users className="w-12 h-12 opacity-20" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {childrenArr.map(dept => {
-            const resourcePct = dept.resources.total > 0 ? (dept.resources.available / dept.resources.total) * 100 : 0;
+          {children.map(dept => {
+            const resourcePct = dept.resources.total > 0
+              ? (dept.resources.available / dept.resources.total) * 100
+              : 0;
+
+            // Translate dept name
+            const deptKey = dept.name.includes('Fire')        ? 'fire'
+                          : dept.name.includes('Police')      ? 'police'
+                          : dept.name.includes('Ambulance')   ? 'ambulance'
+                          : dept.name.includes('Water')       ? 'water'
+                          : 'electricity';
+            const suffix = dept.name.includes('D1') ? '- D1' : '- D2';
+
             return (
               <motion.div
-                whileHover={{ y: -5, boxShadow: '0 20px 40px -10px rgba(0,0,0,.15)' }}
+                whileHover={{ y: -5 }}
                 onClick={() => setSelectedNode(dept.name)}
                 key={dept.name}
                 className="glass-panel p-5 cursor-pointer hover:border-indigo-500 transition-all"
               >
-                <h4 className="font-bold text-lg mb-3">{dept.name.split(' - ')[0]}</h4>
+                <h4 className="font-bold text-lg mb-3">
+                  {t(`departments.${deptKey}`)} {suffix}
+                </h4>
                 <div className="flex justify-between text-sm mb-4">
-                  <span className="text-blue-500 font-bold">Ongoing: {dept.ongoingReports.size()}/3</span>
-                  <span className="text-amber-500 font-bold">Pending: {dept.pendingReports.size()}</span>
+                  <span className="text-blue-500 font-bold">{t('ongoing')}: {dept.ongoingReports.size()}/3</span>
+                  <span className="text-amber-500 font-bold">{t('pending')}: {dept.pendingReports.size()}</span>
                 </div>
-                {/* Resource bar */}
                 <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] text-slate-500 font-medium">
-                    <span>Resources</span>
+                  <div className="flex justify-between text-[10px] font-medium">
+                    <span className="text-slate-500">{t('resources')}</span>
                     <span className={dept.resources.available <= 1 ? 'text-red-500 font-black' : 'text-emerald-500 font-black'}>
                       {dept.resources.available}/{dept.resources.total}
                     </span>
                   </div>
                   <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${resourcePct > 50 ? 'bg-emerald-500' : resourcePct > 20 ? 'bg-amber-500' : 'bg-red-500'}`}
+                      className={`h-full rounded-full transition-all ${
+                        resourcePct > 50 ? 'bg-emerald-500' : resourcePct > 20 ? 'bg-amber-500' : 'bg-red-500'
+                      }`}
                       style={{ width: `${resourcePct}%` }}
                     />
                   </div>
@@ -87,25 +110,34 @@ export function DepartmentDashboard() {
     );
   }
 
-  // ─── Department Detail ────────────────────────────────────────────────────
+  /* ── Department Detail ── */
   const ongoing  = node.ongoingReports.toArray();
   const pending  = node.pendingReports.toArray();
   const resolved = node.resolvedArchive.toArray();
 
-  // Derive department type label from node name
-  const deptType = node.name.includes('Fire') ? 'Fire' : node.name.includes('Police') ? 'Theft' :
-    node.name.includes('Ambulance') ? 'Medical' : node.name.includes('Water') ? 'Water Leak' : 'Power Outage';
+  const deptKey  = node.name.includes('Fire')        ? 'fire'
+                 : node.name.includes('Police')      ? 'police'
+                 : node.name.includes('Ambulance')   ? 'ambulance'
+                 : node.name.includes('Water')       ? 'water'
+                 : 'electricity';
+  const deptType = node.name.includes('Fire')        ? 'Fire'
+                 : node.name.includes('Police')      ? 'Theft'
+                 : node.name.includes('Ambulance')   ? 'Medical'
+                 : node.name.includes('Water')       ? 'Water Leak'
+                 : 'Power Outage';
+  const suffix   = node.name.includes('D1') ? '- D1' : '- D2';
+  const deptLabel = `${t(`departments.${deptKey}`)} ${suffix}`;
 
   const handleICSComplete = (priority: number, score: number, assessment: ICSAssessment) => {
     setIcsResult({ priority, score, assessment });
     setShowICS(false);
-    setShowFileForm(true);         // Now show the simple description form
+    setShowFileForm(true);
   };
 
   const handleFileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!icsResult) return;
-    const district = node.name.includes('D1') ? 'First District' : 'Second District';
+    const district  = node.name.includes('D1') ? 'First District' : 'Second District';
     const deptShort = node.name.split(' ')[0];
     fileReport(district, deptShort, deptType, desc, icsResult.priority, secondaryDept || undefined, icsResult.score);
     setShowFileForm(false);
@@ -116,11 +148,11 @@ export function DepartmentDashboard() {
 
   const TriageBadge = ({ score }: { score?: number }) => {
     if (!score) return null;
-    const t = getICSTriage(score);
-    const colors = { RED: 'bg-red-500', ORANGE: 'bg-orange-500', YELLOW: 'bg-yellow-400' };
+    const tri   = getICSTriage(score);
+    const clrs  = { RED: 'bg-red-500', ORANGE: 'bg-orange-500', YELLOW: 'bg-yellow-400' };
     return (
-      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded text-white ${colors[t.color]}`}>
-        {t.color}
+      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded text-white ${clrs[tri.color]}`}>
+        {tri.color}
       </span>
     );
   };
@@ -130,8 +162,8 @@ export function DepartmentDashboard() {
       layout
       initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
       className={`p-4 rounded-xl border-t-4 shadow-sm ${
-        typeObj === 'ongoing'  ? 'bg-white dark:bg-slate-900 border-blue-500' :
-        typeObj === 'pending'  ? 'bg-white dark:bg-slate-900 border-amber-500' :
+        typeObj === 'ongoing'  ? 'bg-white dark:bg-slate-900 border-blue-500'    :
+        typeObj === 'pending'  ? 'bg-white dark:bg-slate-900 border-amber-500'   :
                                  'bg-slate-50 dark:bg-slate-900/50 border-emerald-500'
       }`}
     >
@@ -141,15 +173,16 @@ export function DepartmentDashboard() {
           <TriageBadge score={r.icsScore} />
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
             r.priority >= 4 ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
-            r.priority === 3 ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
-            'bg-slate-100 text-slate-500'
-          }`}>P{r.priority}</span>
+            r.priority === 3 ? 'bg-amber-100 text-amber-600'                                 :
+                               'bg-slate-100 text-slate-500'
+          }`}>
+            P{r.priority}
+          </span>
         </div>
       </div>
 
       <h3 className="font-bold text-sm truncate mt-1">{r.description}</h3>
 
-      {/* Show supporting depts if any (notification badge only) */}
       {r.supportingDepts && r.supportingDepts.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {r.supportingDepts.map(sd => (
@@ -161,9 +194,13 @@ export function DepartmentDashboard() {
       )}
 
       <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400">
-        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Step {r.timestamp}</span>
+        <span className="flex items-center gap-1">
+          <Clock className="w-3 h-3" /> {t('step')} {r.timestamp}
+        </span>
         {typeObj === 'resolved' && r.duration !== undefined && (
-          <span className="text-emerald-600 dark:text-emerald-400 font-bold">✓ {r.duration} steps</span>
+          <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+            ✓ {r.duration} {t('solved_in')}
+          </span>
         )}
       </div>
 
@@ -172,7 +209,7 @@ export function DepartmentDashboard() {
           onClick={() => resolveReport(r.id)}
           className="mt-3 w-full bg-emerald-500 hover:bg-emerald-600 text-white py-1.5 rounded-lg text-xs font-black transition"
         >
-          MARK RESOLVED
+          {t('mark_resolved')}
         </button>
       )}
     </motion.div>
@@ -185,7 +222,7 @@ export function DepartmentDashboard() {
         {showICS && <ICSModal onComplete={handleICSComplete} onCancel={() => setShowICS(false)} />}
       </AnimatePresence>
 
-      {/* SIMPLE DESCRIPTION FORM (after ICS) */}
+      {/* DESCRIPTION FORM (after ICS) */}
       <AnimatePresence>
         {showFileForm && icsResult && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
@@ -197,47 +234,65 @@ export function DepartmentDashboard() {
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h3 className="text-2xl font-black">{t('actions.file')}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-slate-400">Dispatching to</span>
-                    <span className="text-xs font-bold text-indigo-500">{node.name}</span>
-                    <span className="text-xs font-bold text-slate-400">·</span>
-                    <span className="text-xs font-bold">Priority {icsResult.priority}</span>
-                    <span className="text-xs font-bold text-slate-400">·</span>
-                    <span className="text-xs text-slate-400">ICS Score {icsResult.score}</span>
+                  <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-400">
+                    <span>{t('dispatching_to')}</span>
+                    <span className="font-bold text-indigo-500">{deptLabel}</span>
+                    <span>·</span>
+                    <span className="font-bold">{t('priority_label')} {icsResult.priority}</span>
+                    <span>·</span>
+                    <span>{t('ics_score_label')} {icsResult.score}</span>
                   </div>
                 </div>
-                <button type="button" onClick={() => { setShowFileForm(false); setIcsResult(null); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => { setShowFileForm(false); setIcsResult(null); }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                >
                   <X />
                 </button>
               </div>
 
               <div className="space-y-5">
                 <div>
-                  <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Incident Description</label>
+                  <label className="text-xs font-black uppercase text-slate-500 mb-2 block">
+                    {t('incident_description')}
+                  </label>
                   <textarea
                     autoFocus required
                     value={desc} onChange={e => setDesc(e.target.value)}
-                    placeholder="Describe the emergency..."
+                    placeholder={t('describe_emergency')}
                     className="w-full p-4 rounded-2xl border dark:border-slate-800 bg-slate-50 dark:bg-black/20 outline-none focus:border-indigo-500 h-28 resize-none text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-black uppercase text-slate-500 mb-2 block">Support Department (optional)</label>
+                  <label className="text-xs font-black uppercase text-slate-500 mb-2 block">
+                    {t('support_dept')}
+                  </label>
                   <select
-                    value={secondaryDept} onChange={e => setSecondaryDept(e.target.value)}
+                    value={secondaryDept}
+                    onChange={e => setSecondaryDept(e.target.value)}
                     className="w-full p-3 rounded-2xl border dark:border-slate-800 bg-slate-50 dark:bg-black/20 text-sm font-medium outline-none"
                   >
-                    <option value="">No Secondary Support</option>
-                    <option value={node.name.includes('D1') ? 'Police Dept - D1' : 'Police Dept - D2'}>Police Dept (same district)</option>
-                    <option value={node.name.includes('D1') ? 'Ambulance - D1' : 'Ambulance - D2'}>Ambulance (same district)</option>
-                    <option value={node.name.includes('D1') ? 'Fire Dept - D1' : 'Fire Dept - D2'}>Fire Dept (same district)</option>
+                    <option value="">{t('no_secondary')}</option>
+                    <option value={node.name.includes('D1') ? 'Police Dept - D1' : 'Police Dept - D2'}>
+                      {t('secondary_police')}
+                    </option>
+                    <option value={node.name.includes('D1') ? 'Ambulance - D1' : 'Ambulance - D2'}>
+                      {t('secondary_ambulance')}
+                    </option>
+                    <option value={node.name.includes('D1') ? 'Fire Dept - D1' : 'Fire Dept - D2'}>
+                      {t('secondary_fire')}
+                    </option>
                   </select>
-                  <p className="text-[10px] text-slate-400 mt-1">* Supporting dept is <strong>notified</strong> only — no duplicate report is created.</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{t('support_note')}</p>
                 </div>
 
-                <button type="submit" className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl transition active:scale-95">
-                  DISPATCH INCIDENT
+                <button
+                  type="submit"
+                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black shadow-xl transition active:scale-95"
+                >
+                  {t('dispatch_incident')}
                 </button>
               </div>
             </motion.form>
@@ -254,18 +309,20 @@ export function DepartmentDashboard() {
           isMassCrisis ? 'bg-red-600 text-white' : 'bg-white dark:bg-slate-900'
         }`}>
           <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-xl ${isMassCrisis ? 'bg-white/20' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-500'}`}>
+            <div className={`p-3 rounded-xl ${
+              isMassCrisis ? 'bg-white/20' : 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-500'
+            }`}>
               <MapPin className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-black">{node.name}</h2>
+              <h2 className="text-xl font-black">{deptLabel}</h2>
               <div className="flex items-center gap-3 text-xs opacity-70 mt-0.5">
                 <span className="flex items-center gap-1">
                   <Shield className="w-3 h-3" />
-                  Resources: {node.resources.available}/{node.resources.total}
+                  {t('active_units')}: {node.resources.available}/{node.resources.total}
                 </span>
                 {node.resources.available === 0 && (
-                  <span className="font-black text-red-300 animate-pulse">⚠ NO UNITS AVAILABLE</span>
+                  <span className="font-black text-red-300 animate-pulse">{t('no_units')}</span>
                 )}
               </div>
             </div>
@@ -280,7 +337,10 @@ export function DepartmentDashboard() {
             >
               {t('actions.file')} →
             </button>
-            <button onClick={() => setSelectedNode(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition">
+            <button
+              onClick={() => setSelectedNode(null)}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -306,7 +366,7 @@ export function DepartmentDashboard() {
               {ongoing.length === 0 && (
                 <div className="text-center py-12 opacity-20">
                   <CheckCircle2 className="w-10 h-10 mx-auto mb-2" />
-                  <p className="text-xs font-bold">Clear</p>
+                  <p className="text-xs font-bold">{t('clear')}</p>
                 </div>
               )}
             </div>
@@ -329,7 +389,7 @@ export function DepartmentDashboard() {
               {pending.length === 0 && (
                 <div className="text-center py-12 opacity-20">
                   <Clock className="w-10 h-10 mx-auto mb-2" />
-                  <p className="text-xs font-bold">No Backlog</p>
+                  <p className="text-xs font-bold">{t('no_backlog')}</p>
                 </div>
               )}
             </div>
@@ -347,7 +407,9 @@ export function DepartmentDashboard() {
             </div>
             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
               <AnimatePresence>
-                {[...resolved].reverse().map((r, i) => <ReportCard key={`${r.id}-${i}`} r={r} typeObj="resolved" />)}
+                {[...resolved].reverse().map((r, i) => (
+                  <ReportCard key={`${r.id}-${i}`} r={r} typeObj="resolved" />
+                ))}
               </AnimatePresence>
             </div>
           </div>
