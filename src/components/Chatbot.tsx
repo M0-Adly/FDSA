@@ -166,12 +166,7 @@ export function Chatbot() {
 
       // 4 ── Escalate All Now ────────────────────────────────────────────────
       case 4: {
-        const beforePending = Object.values(stats).reduce((s, d) => s + d.pending, 0);
-        escalatePending();
-        // Count after — re-read from system (already mutated)
-        const afterStats = system.getSystemStats();
-        const afterPending = Object.values(afterStats).reduce((s, d) => s + d.pending, 0);
-        const moved = Math.max(0, beforePending - afterPending);
+        const moved = escalatePending();
         push(mkMsg('aria',
           `🚨 ${t('chatbot.qa4_result', { count: moved })}`,
           'action-result',

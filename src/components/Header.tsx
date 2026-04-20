@@ -69,7 +69,7 @@ export function Header({ onShowRecords }: HeaderProps) {
     system, version, lang, theme,
     toggleTheme, setLang, setSelectedNode, setSearchFilter,
     escalatePending, undoAction, incrementSimStep,
-    isMaxEmergency, toggleMaxEmergency,
+    isMaxEmergency, toggleMaxEmergency, showToast,
   } = useAppStore();
 
   // ── 1.1: Compute real-time stats ──────────────────────────────────────────
@@ -251,7 +251,11 @@ export function Header({ onShowRecords }: HeaderProps) {
           </button>
 
           {/* Escalate */}
-          <button onClick={escalatePending} id="btn-escalate" title={t('escalate_desc')}
+          <button id="btn-escalate" title={t('escalate_desc')}
+            onClick={() => {
+              const count = escalatePending();
+              showToast(t('chatbot.qa4_result', { count }), count > 0 ? 'success' : 'warning');
+            }}
             className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-full text-xs transition shadow-lg shadow-amber-500/20">
             {t('escalate_all')}
           </button>

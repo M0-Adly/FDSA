@@ -245,37 +245,45 @@ export class CrisisSystem {
    * This simulates real-world mutual-aid agreements between districts.
    * T1: In max-emergency mode, threshold = 0 (escalate immediately).
    */
-  escalateInTree(node: DepartmentNode | null, isMaxEmergency: boolean): void {
-    if (!node) return;
+  escalateInTree(node: DepartmentNode | null, isMaxEmergency: boolean, movedIds: Set<number>): number {
+    if (!node) return 0;
+    let count = 0;
     // T1: max-emergency → escalate immediately (threshold = 0)
     const threshold = isMaxEmergency ? 0 : CrisisSystem.ESCALATION_THRESHOLD;
-    if (!node.isDistrict) {
+    
+    if (!node.isDistrict && node.name !== 'Central Crisis System') {
       let cur = node.pendingReports.head;
       while (cur) {
         const next = cur.next;
-        // T10: use strict > (fixes the off-by-one; reports at exactly threshold stay)
-        if (this.simStep - cur.data.timestamp > threshold) {
-          const r       = { ...cur.data };
-          node.pendingReports.removeNodeByValue((v) => v.id === r.id);
-          const sibling = this.getSiblingDept(node.name); // T6: always same type
+        // Check if report is older than threshold AND hasn't been moved this call
+        if (this.simStep - cur.data.timestamp > threshold && !movedIds.has(cur.data.id)) {
+          const r = { ...cur.data };
+          const sibling = this.getSiblingDept(node.name);
+          
           if (sibling) {
+            // Remove from current
+            node.pendingReports.removeNode(cur);
+            // Add to sibling
             sibling.pendingReports.insertSortedByPriority(r, (v) => v.priority);
+            movedIds.add(r.id);
+            count++;
+            
             this.actionHistory.push({
               type: 'ESCALATE', reportId: r.id,
               deptName: node.name, extraInfo: sibling.name,
             });
-          } else {
-            node.pendingReports.insertSortedByPriority(r, (v) => v.priority);
           }
         }
         cur = next;
       }
     }
+    
     let child = node.children.head;
     while (child) {
-      this.escalateInTree(child.data, isMaxEmergency);
+      count += this.escalateInTree(child.data, isMaxEmergency, movedIds);
       child = child.next;
     }
+    return count;
   }
 
   // ── Init ─────────────────────────────────────────────────────────────────────
@@ -359,10 +367,12 @@ export class CrisisSystem {
   }
 
   // ── T5 & T10: Escalate ───────────────────────────────────────────────────────
-  escalatePendingReports(isMaxEmergency = false): void {
+  escalatePendingReports(isMaxEmergency = false): number {
     this.simStep++;  // T5: once per call
-    this.escalateInTree(this.root, isMaxEmergency);
+    const movedIds = new Set<number>();
+    const count = this.escalateInTree(this.root, isMaxEmergency, movedIds);
     this.persist();
+    return count;
   }
 
   // ── T6: Transfer — FORCED to sibling dept (no target choice) ────────────────

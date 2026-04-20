@@ -9,9 +9,10 @@ import { AuditSidebar } from './components/AuditSidebar';
 import './lib/i18n';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 function App() {
-  const { initSystem, theme, isMaxEmergency } = useAppStore();
+  const { initSystem, theme, isMaxEmergency, toast } = useAppStore();
   const { t } = useTranslation();
 
   // T3: simple page state — 'dashboard' | 'records'
@@ -105,6 +106,24 @@ function App() {
       </main>
 
       <Chatbot />
+      
+      {/* Global Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl font-black text-sm flex items-center gap-3 border backdrop-blur-md
+              ${toast.type === 'success' ? 'bg-emerald-500/90 border-emerald-400 text-white' : 
+                toast.type === 'warning' ? 'bg-amber-500/90  border-amber-400  text-white' : 
+                                           'bg-red-500/90    border-red-400    text-white'}`}
+          >
+            {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Dot-grid overlay */}
       <div

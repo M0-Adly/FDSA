@@ -21,11 +21,12 @@ interface AppState {
   isMaxEmergency: boolean;
   auditLog: AuditEntry[];
   searchFilter: string;
+  toast: { message: string, type: 'success' | 'warning' | 'error' } | null;
 
   initSystem:       () => void;
   fileReport:       (district: string, deptShort: string, type: string, desc: string, priority: number, secondary?: string, icsScore?: number) => void;
   resolveReport:    (reportId: number) => void;
-  escalatePending:  () => void;
+  escalatePending:  () => number;
   undoAction:       () => void;
   // T6: only needs fromDept and reportId — sibling is auto-computed
   transferPending:  (fromDept: string, reportId: number) => void;
@@ -39,6 +40,7 @@ interface AppState {
   setSearchFilter: (q: string) => void;
   toggleTheme:     () => void;
   setLang:         (l: 'en' | 'ar') => void;
+  showToast:       (msg: string, type?: 'success' | 'warning' | 'error') => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -50,6 +52,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isMaxEmergency: false,
   auditLog:       [],
   searchFilter:   '',
+  toast:          null,
 
   addAudit: (msg, type = 'info') => {
     const entry: AuditEntry = {
@@ -85,9 +88,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   escalatePending: () => {
-    sys.escalatePendingReports(get().isMaxEmergency);
-    get().addAudit('Global escalation triggered', 'warning');
+    const count = sys.escalatePendingReports(get().isMaxEmergency);
+    get().addAudit(`Global escalation triggered: ${count} report(s) moved`, 'warning');
     set((s) => ({ version: s.version + 1 }));
+    return count;
   },
 
   undoAction: () => {
@@ -150,4 +154,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
 
   setLang: (l) => set({ lang: l }),
+
+  showToast: (message, type = 'success') => {
+    set({ toast: { message, type } });
+    setTimeout(() => {
+      // Only clear if it's still the same message
+      if (get().toast?.message === message) set({ toast: null });
+    }, 4000);
+  },
 }));
