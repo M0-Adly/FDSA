@@ -1,23 +1,14 @@
 import { create } from 'zustand';
 import { CrisisSystem, type AuditEntry } from './crisis-system';
 
-// ─── TASK 5: CrisisSystem is created ONCE outside the store factory.
-// Theme toggles only mutate `theme` inside the store — they NEVER touch `system`.
-// The singleton `sys` is initialized from LocalStorage on app start (TASK 3).
+// Singleton — created ONCE, never recreated on theme/lang change
 const sys: CrisisSystem = CrisisSystem.loadFromStorage() ?? new CrisisSystem();
 
-// ─── TASK 5: Theme is also persisted separately so it never causes sys re-init.
 function loadTheme(): 'dark' | 'light' {
-  try {
-    const saved = localStorage.getItem('crisis_theme');
-    return saved === 'light' ? 'light' : 'dark';
-  } catch {
-    return 'dark';
-  }
+  try { return (localStorage.getItem('crisis_theme') === 'light') ? 'light' : 'dark'; } catch { return 'dark'; }
 }
-
-function saveTheme(theme: 'dark' | 'light') {
-  try { localStorage.setItem('crisis_theme', theme); } catch { /* ignore */ }
+function saveTheme(t: 'dark' | 'light') {
+  try { localStorage.setItem('crisis_theme', t); } catch { /* ignore */ }
 }
 
 interface AppState {
@@ -26,34 +17,37 @@ interface AppState {
   selectedNode: string | null;
   theme: 'dark' | 'light';
   lang: 'en' | 'ar';
-  isMassCrisis: boolean;
+  // T1: renamed from isMassCrisis → isMaxEmergency for clarity
+  isMaxEmergency: boolean;
   auditLog: AuditEntry[];
 
-  initSystem:        () => void;
-  fileReport:        (district: string, deptShort: string, type: string, desc: string, priority: number, secondary?: string, icsScore?: number) => void;
-  resolveReport:     (reportId: number) => void;
-  escalatePending:   () => void;
-  undoAction:        () => void;
-  transferPending:   (fromDept: string, toDept: string, reportId: number) => void;
-  incrementSimStep:  () => void;
-  toggleMassCrisis:  () => void;
-  addAudit:          (msg: string, type?: AuditEntry['type']) => void;
+  initSystem:       () => void;
+  fileReport:       (district: string, deptShort: string, type: string, desc: string, priority: number, secondary?: string, icsScore?: number) => void;
+  resolveReport:    (reportId: number) => void;
+  escalatePending:  () => void;
+  undoAction:       () => void;
+  // T6: only needs fromDept and reportId — sibling is auto-computed
+  transferPending:  (fromDept: string, reportId: number) => void;
+  // T7: manual force promote
+  forceOngoing:     (deptName: string, reportId: number) => 'ok' | 'full' | 'notfound';
+  incrementSimStep: () => void;
+  toggleMaxEmergency: () => void;
+  addAudit:         (msg: string, type?: AuditEntry['type']) => void;
 
-  setSelectedNode: (nodeName: string | null) => void;
+  setSelectedNode: (n: string | null) => void;
   toggleTheme:     () => void;
-  setLang:         (lang: 'en' | 'ar') => void;
+  setLang:         (l: 'en' | 'ar') => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  system:       sys,
-  version:      0,
-  selectedNode: null,
-  theme:        loadTheme(),    // TASK 5: loaded from localStorage
-  lang:         'en',
-  isMassCrisis: false,
-  auditLog:     [],
+  system:         sys,
+  version:        0,
+  selectedNode:   null,
+  theme:          loadTheme(),
+  lang:           'en',
+  isMaxEmergency: false,
+  auditLog:       [],
 
-  // ── Audit helper ─────────────────────────────────────────────────────────────
   addAudit: (msg, type = 'info') => {
     const entry: AuditEntry = {
       id:        Math.random().toString(36).substring(7),
@@ -61,95 +55,96 @@ export const useAppStore = create<AppState>((set, get) => ({
       msg,
       type,
     };
-    set((state) => ({ auditLog: [entry, ...state.auditLog].slice(0, 50) }));
+    set((s) => ({ auditLog: [entry, ...s.auditLog].slice(0, 100) }));
   },
 
-  // ── Init (TASK 3 & 5: only init when no saved data exists) ───────────────────
   initSystem: () => {
-    // If already loaded from LocalStorage, don't re-seed
     if (sys.root !== null) {
       get().addAudit('System restored from saved state', 'success');
-      set((state) => ({ version: state.version + 1 }));
+      set((s) => ({ version: s.version + 1 }));
       return;
     }
     sys.initializeSystem();
     get().addAudit('System Initialized', 'success');
-    set((state) => ({ version: state.version + 1 }));
+    set((s) => ({ version: s.version + 1 }));
   },
 
-  // ── File Report ────────────────────────────────────────────────────────────────
   fileReport: (district, deptShort, type, desc, priority, secondary, icsScore) => {
-    sys.fileReport(district, deptShort, type, desc, priority, get().isMassCrisis, secondary, icsScore);
-    get().addAudit(`New report filed in ${deptShort} (ICS score: ${icsScore ?? 'N/A'})`, 'info');
-    set((state) => ({ version: state.version + 1 }));
+    sys.fileReport(district, deptShort, type, desc, priority, get().isMaxEmergency, secondary, icsScore);
+    get().addAudit(`Filed report in ${deptShort} (ICS: ${icsScore ?? 'N/A'})`, 'info');
+    set((s) => ({ version: s.version + 1 }));
   },
 
-  // ── Resolve ────────────────────────────────────────────────────────────────────
   resolveReport: (reportId) => {
-    sys.resolveReport(reportId);
+    sys.resolveReport(reportId, get().isMaxEmergency);
     get().addAudit(`Report #${reportId} resolved`, 'success');
-    set((state) => ({ version: state.version + 1 }));
+    set((s) => ({ version: s.version + 1 }));
   },
 
-  // ── Escalate (TASK 7: escalatePendingReports already increments simStep once) ─
   escalatePending: () => {
-    sys.escalatePendingReports(get().isMassCrisis);
+    sys.escalatePendingReports(get().isMaxEmergency);
     get().addAudit('Global escalation triggered', 'warning');
-    set((state) => ({ version: state.version + 1 }));
+    set((s) => ({ version: s.version + 1 }));
   },
 
-  // ── Undo ───────────────────────────────────────────────────────────────────────
   undoAction: () => {
-    const lastAction = sys.actionHistory.top();
-    const desc = lastAction ? `${lastAction.type} #${lastAction.reportId}` : 'nothing';
+    const last = sys.actionHistory.top();
+    const desc = last ? `${last.type} #${last.reportId}` : 'nothing';
     sys.undoLastAction();
     get().addAudit(`Undone: ${desc}`, 'info');
-    set((state) => ({ version: state.version + 1 }));
+    set((s) => ({ version: s.version + 1 }));
   },
 
-  // ── Transfer (TASK 2) ──────────────────────────────────────────────────────────
-  transferPending: (fromDept, toDept, reportId) => {
-    sys.transferPendingReport(fromDept, toDept, reportId);
-    get().addAudit(`Transferred #${reportId} → ${toDept}`, 'info');
-    set((state) => ({ version: state.version + 1 }));
+  // T6: forced transfer — only needs fromDept + reportId
+  transferPending: (fromDept, reportId) => {
+    const result = sys.transferPendingReport(fromDept, reportId);
+    if (result === 'ok') {
+      const sib = sys.getSiblingDept(fromDept);
+      get().addAudit(`Transferred #${reportId} → ${sib?.name ?? 'sibling'}`, 'info');
+    } else {
+      get().addAudit(`Transfer failed: ${result}`, 'error');
+    }
+    set((s) => ({ version: s.version + 1 }));
   },
 
-  // ── +1 Sim Step (TASK 7) ───────────────────────────────────────────────────────
+  // T7: manual force promote
+  forceOngoing: (deptName, reportId) => {
+    const result = sys.forceOngoing(deptName, reportId, get().isMaxEmergency);
+    if (result === 'ok')   get().addAudit(`Report #${reportId} forced to Ongoing`, 'success');
+    if (result === 'full') get().addAudit(`Cannot promote #${reportId}: ongoing list full`, 'error');
+    set((s) => ({ version: s.version + 1 }));
+    return result;
+  },
+
   incrementSimStep: () => {
     sys.simStep++;
     if (sys.simStep % 5 === 0) {
       sys.applyAging(sys.root);
-      get().addAudit('System Aging: Priorities increased for pending reports', 'warning');
+      get().addAudit('Aging: priorities increased for pending reports', 'warning');
     }
     sys.persist();
-    set((state) => ({ version: state.version + 1 }));
+    set((s) => ({ version: s.version + 1 }));
   },
 
-  // ── Mass Crisis ────────────────────────────────────────────────────────────────
-  toggleMassCrisis: () => {
-    const newVal = !get().isMassCrisis;
-    set({ isMassCrisis: newVal });
+  // T1: Maximum Emergency toggle
+  toggleMaxEmergency: () => {
+    const newVal = !get().isMaxEmergency;
+    set({ isMaxEmergency: newVal });
     get().addAudit(
-      newVal ? 'MASS CRISIS MODE ACTIVATED' : 'Mass Crisis Mode Deactivated',
+      newVal ? '🚨 MAXIMUM EMERGENCY MODE ACTIVATED' : 'Maximum Emergency Mode Deactivated',
       newVal ? 'error' : 'success',
     );
   },
 
-  setSelectedNode: (nodeName) => set({ selectedNode: nodeName }),
+  setSelectedNode: (n) => set({ selectedNode: n }),
 
-  // ── TASK 5: Theme toggle is PURELY cosmetic — does NOT touch sys ──────────────
   toggleTheme: () =>
-    set((state) => {
-      const newTheme = state.theme === 'dark' ? 'light' : 'dark';
-      saveTheme(newTheme);
-      if (newTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      // system, version, auditLog — all untouched
-      return { theme: newTheme };
+    set((s) => {
+      const t = s.theme === 'dark' ? 'light' : 'dark';
+      saveTheme(t);
+      document.documentElement.classList.toggle('dark', t === 'dark');
+      return { theme: t };
     }),
 
-  setLang: (lang) => set({ lang }),
+  setLang: (l) => set({ lang: l }),
 }));
