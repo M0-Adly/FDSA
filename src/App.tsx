@@ -4,12 +4,13 @@ import { Header } from './components/Header';
 import { TreeVisualizer } from './components/TreeVisualizer';
 import { DepartmentDashboard } from './components/DepartmentDashboard';
 import { Chatbot } from './components/Chatbot';
+import { AuditSidebar } from './components/AuditSidebar';
 import './lib/i18n';
-import { useTranslation } from 'react-i18next';
+
+import { motion, AnimatePresence } from 'framer-motion';
 
 function App() {
-  const { initSystem, theme } = useAppStore();
-  const { t } = useTranslation();
+  const { initSystem, theme, isMassCrisis } = useAppStore();
 
   useEffect(() => {
     initSystem();
@@ -21,36 +22,67 @@ function App() {
   }, [initSystem, theme]);
 
   return (
-    <div className="min-h-screen flex flex-col font-sans transition-colors duration-300 relative overflow-hidden bg-slate-50 dark:bg-[#09090b]">
+    <div className={`min-h-screen flex flex-col font-sans transition-all duration-1000 relative overflow-hidden ${
+      isMassCrisis 
+        ? 'bg-red-50 dark:bg-[#1a0505]' 
+        : 'bg-slate-50 dark:bg-[#09090b]'
+    }`}>
       
       {/* Dynamic Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-blue-500/10 dark:bg-blue-600/5 rounded-full blur-[120px] mix-blend-screen"></div>
-        <div className="absolute top-[60%] -right-[10%] w-[40%] h-[60%] bg-amber-500/10 dark:bg-amber-600/5 rounded-full blur-[120px] mix-blend-screen"></div>
-        <div className="absolute bottom-[0%] left-[20%] w-[30%] h-[40%] bg-emerald-500/10 dark:bg-emerald-600/5 rounded-full blur-[100px] mix-blend-screen"></div>
+        <div className={`absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[120px] mix-blend-screen transition-colors duration-1000 ${
+          isMassCrisis ? 'bg-red-600/20' : 'bg-blue-500/10 dark:bg-blue-600/5'
+        }`}></div>
+        <div className={`absolute top-[60%] -right-[10%] w-[40%] h-[60%] rounded-full blur-[120px] mix-blend-screen transition-colors duration-1000 ${
+          isMassCrisis ? 'bg-orange-600/20' : 'bg-amber-500/10 dark:bg-amber-600/5'
+        }`}></div>
       </div>
 
       <Header />
 
-      <main className="flex-1 container mx-auto p-4 flex flex-col md:flex-row gap-4 relative z-10">
-        {/* Tree Sidebar */}
-        <div className="w-full md:w-1/3 flex flex-col gap-4">
-          <div className="glass-panel p-4 h-full flex flex-col shadow-xl">
-            <h2 className="text-xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">{t('app_title')}</h2>
-            <div className="flex-1 min-h-[400px]">
+      {/* Mass Crisis Overlay Banner */}
+      <AnimatePresence>
+        {isMassCrisis && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-red-600 text-white text-[10px] font-black uppercase tracking-[0.3em] flex items-center justify-center py-1 z-50 overflow-hidden"
+          >
+            Critical Alert: Mass Crisis Mode Active • Response Thresholds Reduced • Priority Overridden
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <main className="flex-1 container mx-auto p-4 grid grid-cols-12 gap-4 relative z-10 overflow-hidden">
+        {/* Left: Tree & Logs */}
+        <div className="col-span-12 lg:col-span-3 flex flex-col gap-4 overflow-hidden">
+          <div className="glass-panel p-4 h-[350px] flex flex-col shadow-xl">
+            <h2 className="text-sm font-black mb-4 flex items-center gap-2 uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+              <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+              Hierarchy
+            </h2>
+            <div className="flex-1 rounded-xl overflow-hidden bg-slate-100 dark:bg-black/20 border dark:border-slate-800">
               <TreeVisualizer />
             </div>
-            <p className="text-xs text-slate-500 mt-4 text-center">{t('stats')}</p>
+          </div>
+          
+          <div className="flex-1 min-h-[300px]">
+            <AuditSidebar />
           </div>
         </div>
 
-        {/* Selected Dashboard */}
-        <div className="w-full md:w-2/3 h-full min-h-[600px] flex flex-col">
+        {/* Right: Main Dashboard */}
+        <div className="col-span-12 lg:col-span-9 h-full flex flex-col overflow-hidden">
           <DepartmentDashboard />
         </div>
       </main>
 
       <Chatbot />
+
+      {/* Grid Overlay for aesthetic */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.05] z-0" 
+           style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
     </div>
   );
 }
