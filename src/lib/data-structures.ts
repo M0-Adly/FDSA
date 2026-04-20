@@ -151,26 +151,47 @@ export class DoublyLinkedList<T> {
       cur = cur.next;
     }
     
-    // insert at end
-    this.insertLast(val);
+    // insert at end (lowest priority)
+    newNode.prev = this.tail;
+    if (this.tail) this.tail.next = newNode;
+    this.tail = newNode;
+    this.count++;
   }
 
+  // Remove by predicate (value comparison)
   removeNodeByValue(isEqual: (val: T) => boolean): boolean {
     let cur = this.head;
     while (cur) {
       if (isEqual(cur.data)) {
-        if (cur.prev) cur.prev.next = cur.next;
-        else this.head = cur.next;
-
-        if (cur.next) cur.next.prev = cur.prev;
-        else this.tail = cur.prev;
-
-        this.count--;
-        return true;
+        return this.removeNode(cur);
       }
       cur = cur.next;
     }
     return false;
+  }
+
+  // Remove a specific DNode pointer — O(1) pointer surgery (TASK 2 fix)
+  removeNode(node: DNode<T>): boolean {
+    if (node.prev) node.prev.next = node.next;
+    else this.head = node.next;
+
+    if (node.next) node.next.prev = node.prev;
+    else this.tail = node.prev;
+
+    node.prev = null;
+    node.next = null;
+    this.count--;
+    return true;
+  }
+
+  // Find DNode by predicate, returns the node pointer (TASK 2)
+  findNode(isEqual: (val: T) => boolean): DNode<T> | null {
+    let cur = this.head;
+    while (cur) {
+      if (isEqual(cur.data)) return cur;
+      cur = cur.next;
+    }
+    return null;
   }
 
   isEmpty(): boolean {
@@ -192,7 +213,7 @@ export class DoublyLinkedList<T> {
   }
 }
 
-// Circular Linked List
+// Circular Linked List (kept for legacy; capacity-based ring buffer)
 export class CircularLinkedList<T> {
   private tail: SNode<T> | null;
   private count: number;
@@ -244,9 +265,9 @@ export class CircularLinkedList<T> {
     let cur: SNode<T> | null = head;
     let i = 0;
     do {
-      if(cur) {
-         arr.push(cur.data);
-         cur = cur.next;
+      if (cur) {
+        arr.push(cur.data);
+        cur = cur.next;
       }
       i++;
     } while (cur !== head && i < this.count);
