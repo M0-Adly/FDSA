@@ -35,6 +35,8 @@ interface AppState {
   incrementSimStep: () => void;
   toggleMaxEmergency: () => void;
   addAudit:         (msg: string, type?: AuditEntry['type']) => void;
+  deleteReport:     (reportId: number) => void;
+  clearRecords:     () => void;
 
   setSelectedNode: (n: string | null) => void;
   setSearchFilter: (q: string) => void;
@@ -140,6 +142,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       newVal ? '🚨 MAXIMUM EMERGENCY MODE ACTIVATED' : 'Maximum Emergency Mode Deactivated',
       newVal ? 'error' : 'success',
     );
+  },
+  deleteReport: (id) => {
+    sys.deleteReportFromArchive(id);
+    get().addAudit(`Report #${id} deleted from archive`, 'warning');
+    set((s) => ({ version: s.version + 1 }));
+  },
+  clearRecords: () => {
+    sys.clearAllArchives();
+    get().addAudit('All records cleared', 'error');
+    set((s) => ({ version: s.version + 1 }));
   },
 
   setSelectedNode: (n) => set({ selectedNode: n }),

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../lib/store';
 import { type Report } from '../lib/crisis-system';
 import { motion } from 'framer-motion';
-import { CheckCircle2, Calendar, CalendarDays, CalendarRange, ArrowLeft, Archive } from 'lucide-react';
+import { CheckCircle2, Calendar, CalendarDays, CalendarRange, ArrowLeft, Archive, Trash2, Filter } from 'lucide-react';
 import { getICSTriage } from '../lib/crisis-system';
 
 type ArchiveFilter = 'all' | 'daily' | 'weekly' | 'monthly';
@@ -34,27 +34,37 @@ interface RecordsPageProps {
 
 export function RecordsPage({ onBack }: RecordsPageProps) {
   const { t } = useTranslation();
-  const { system, version } = useAppStore();
+  const { system, version, deleteReport, clearRecords } = useAppStore();
 
   const [filter, setFilter] = useState<ArchiveFilter>('all');
+  const [deptFilter, setDeptFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
 
-  // T3/T8: All resolved across all depts, filtered & sorted by priority (T9)
   const allResolved: Report[] = useMemo(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     return system.filterAllResolved(filter);
   }, [system, version, filter]);
 
   const displayed = useMemo(() => {
-    if (!search.trim()) return allResolved;
-    const q = search.toLowerCase();
-    return allResolved.filter(
-      (r) =>
-        r.description.toLowerCase().includes(q) ||
-        r.type.toLowerCase().includes(q) ||
-        String(r.id).includes(q),
-    );
-  }, [allResolved, search]);
+    let list = allResolved;
+    
+    // Agency Filter
+    if (deptFilter !== 'all') {
+      list = list.filter(r => r.type === deptFilter);
+    }
+
+    // Search Filter
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.description.toLowerCase().includes(q) ||
+          r.type.toLowerCase().includes(q) ||
+          String(r.id).includes(q),
+      );
+    }
+    
+    return list;
+  }, [allResolved, deptFilter, search]);
 
   const FilterBtn = ({ id, icon: Icon, label }: { id: ArchiveFilter; icon: React.ElementType; label: string }) => (
     <button
@@ -68,6 +78,18 @@ export function RecordsPage({ onBack }: RecordsPageProps) {
       <Icon className="w-3.5 h-3.5" /> {label}
     </button>
   );
+
+  const handleClearAll = () => {
+    if (window.confirm(t('confirm_clear_all') || 'Are you sure you want to clear all records?')) {
+      clearRecords();
+    }
+  };
+
+  const handleDelete = (id: number) => {
+    if (window.confirm(t('confirm_delete') || 'Delete this record?')) {
+      deleteReport(id);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -91,17 +113,48 @@ export function RecordsPage({ onBack }: RecordsPageProps) {
             </div>
           </div>
         </div>
-        <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-          {displayed.length}
-        </span>
+        
+        <div className="flex items-center gap-4">
+          <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+            {displayed.length}
+          </span>
+          <button
+            onClick={handleClearAll}
+            className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-black hover:bg-red-100 transition border border-red-200/50 dark:border-red-900/50"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> {t('records_clear_all')}
+          </button>
+        </div>
       </div>
 
       {/* Filters + Search */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <FilterBtn id="all"     icon={CheckCircle2}  label={t('filter_all')} />
-        <FilterBtn id="daily"   icon={Calendar}      label={t('filter_daily')} />
-        <FilterBtn id="weekly"  icon={CalendarDays}  label={t('filter_weekly')} />
-        <FilterBtn id="monthly" icon={CalendarRange} label={t('filter_monthly')} />
+        <div className="flex gap-2">
+          <FilterBtn id="all"     icon={CheckCircle2}  label={t('filter_all')} />
+          <FilterBtn id="daily"   icon={Calendar}      label={t('filter_daily')} />
+          <FilterBtn id="weekly"  icon={CalendarDays}  label={t('filter_weekly')} />
+          <FilterBtn id="monthly" icon={CalendarRange} label={t('filter_monthly')} />
+        </div>
+
+        <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden md:block" />
+
+        {/* Agency Filter */}
+        <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl">
+          <Filter className="w-3.5 h-3.5 text-slate-400" />
+          <select 
+            value={deptFilter} 
+            onChange={(e) => setDeptFilter(e.target.value)}
+            className="bg-transparent text-xs font-bold outline-none text-slate-600 dark:text-slate-300"
+          >
+            <option value="all">{t('all_depts')}</option>
+            <option value="Fire">{t('departments.fire')}</option>
+            <option value="Police">{t('departments.police')}</option>
+            <option value="Medical">{t('departments.ambulance')}</option>
+            <option value="Water Leak">{t('departments.water')}</option>
+            <option value="Power Outage">{t('departments.electricity')}</option>
+          </select>
+        </div>
+
         <input
           type="text"
           placeholder={t('records_search')}
@@ -123,7 +176,7 @@ export function RecordsPage({ onBack }: RecordsPageProps) {
             <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/80 backdrop-blur">
               <tr>
                 {['#ID', t('records_col_type'), t('records_col_desc'), t('records_col_priority'),
-                  t('records_col_dept'), t('records_col_step'), t('records_col_duration')].map((h) => (
+                  t('records_col_dept'), t('records_col_step'), t('records_col_duration'), ''].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">
                     {h}
                   </th>
@@ -137,7 +190,7 @@ export function RecordsPage({ onBack }: RecordsPageProps) {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: Math.min(idx * 0.02, 0.3) }}
-                  className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                  className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
                 >
                   <td className="px-4 py-3 font-mono text-slate-400 text-xs">#{r.id}</td>
                   <td className="px-4 py-3 font-semibold">
@@ -156,6 +209,15 @@ export function RecordsPage({ onBack }: RecordsPageProps) {
                         ✓ {r.duration} {t('solved_in')}
                       </span>
                     ) : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => handleDelete(r.id)}
+                      className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition opacity-0 group-hover:opacity-100"
+                      title={t('records_delete')}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
                 </motion.tr>
               ))}

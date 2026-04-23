@@ -73,6 +73,10 @@ const resources = {
       filter_daily:       'Daily',
       filter_weekly:      'Weekly',
       filter_monthly:     'Monthly',
+      records_clear_all:  'Clear All',
+      records_delete:     'Delete',
+      filter_dept:        'Agency',
+      all_depts:          'All Agencies',
 
       // ── File Report ───────────────────────────────────────────────────────────
       dispatch_incident:  'DISPATCH INCIDENT',
@@ -256,6 +260,10 @@ const resources = {
       filter_daily:        'يومي',
       filter_weekly:       'أسبوعي',
       filter_monthly:      'شهري',
+      records_clear_all:   'مسح السجل',
+      records_delete:      'حذف',
+      filter_dept:         'تصفية حسب الهيئة',
+      all_depts:           'جميع الهيئات',
 
       // ── File Report ───────────────────────────────────────────────────────────
       dispatch_incident:   'إرسال البلاغ',

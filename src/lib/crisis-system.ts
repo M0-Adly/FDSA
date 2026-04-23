@@ -488,6 +488,32 @@ export class CrisisSystem {
     return results.sort((a, b) => b.priority - a.priority);
   }
 
+  deleteReportFromArchive(reportId: number): void {
+    const walk = (node: DepartmentNode | null) => {
+      if (!node) return;
+      if (!node.isDistrict && node.name !== 'Central Crisis System') {
+        node.resolvedArchive.removeValue((v) => v.id === reportId);
+      }
+      let child = node.children.head;
+      while (child) { walk(child.data); child = child.next; }
+    };
+    walk(this.root);
+    this.persist();
+  }
+
+  clearAllArchives(): void {
+    const walk = (node: DepartmentNode | null) => {
+      if (!node) return;
+      if (!node.isDistrict && node.name !== 'Central Crisis System') {
+        node.resolvedArchive = new SinglyLinkedList<Report>();
+      }
+      let child = node.children.head;
+      while (child) { walk(child.data); child = child.next; }
+    };
+    walk(this.root);
+    this.persist();
+  }
+
   // ── Stats ────────────────────────────────────────────────────────────────────
   getSystemStats(): Record<string, { ongoing: number; pending: number; resolved: number }> {
     const stats: Record<string, { ongoing: number; pending: number; resolved: number }> = {};
