@@ -48,7 +48,7 @@ const TRIAGE_STYLES = {
 };
 
 export function ICSModal({ onComplete, onCancel }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [assessment, setAssessment] = useState<ICSAssessment>({
     lifeThreat: 3, escalationRate: 3, potentialScale: 3,
@@ -226,7 +226,9 @@ export function ICSModal({ onComplete, onCancel }: Props) {
             <motion.div key="result" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
               <div className={`${TRIAGE_STYLES[triage.color].bg} ${TRIAGE_STYLES[triage.color].text} p-8 text-center`}>
                 <div className="text-5xl font-black mb-2">{triage.color}</div>
-                <div className="text-2xl font-bold">{triageLabel} {t('ics.response')}</div>
+                <div className="text-2xl font-bold">
+                  {i18n.language === 'ar' ? `${t('ics.response')} ${triageLabel}` : `${triageLabel} ${t('ics.response')}`}
+                </div>
                 <div className="text-sm opacity-80 mt-1">
                   {t('ics.score_label', {
                     score,
