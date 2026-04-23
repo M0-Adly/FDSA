@@ -3,9 +3,6 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion } from 'framer-motion';
 
-// Fix for default marker icons in Leaflet
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 const ASWAN_COORDS: [number, number] = [24.0889, 32.8998];
 
