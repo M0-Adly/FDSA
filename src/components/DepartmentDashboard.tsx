@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { AswanMap } from './AswanMap';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../lib/store';
 import { type Report, type ICSAssessment, getICSTriage, DEPT_TOTAL_CAPACITY } from '../lib/crisis-system';
@@ -104,6 +105,7 @@ function ActiveUnitsBar({ ongoing, total = DEPT_TOTAL_CAPACITY }: { ongoing: num
   );
 }
 
+
 export function DepartmentDashboard() {
   const { t } = useTranslation();
   const {
@@ -127,13 +129,17 @@ export function DepartmentDashboard() {
   /* ── Central system / empty state ── */
   if (!node || node.name === 'Central Crisis System') {
     return (
-      <div className="flex-1 flex flex-col gap-5 overflow-y-auto pr-1">
+      <div className="flex-1 flex flex-col gap-5 overflow-hidden pr-1">
         <GovernorateBanner />
-        <div className="flex-1 glass-panel p-6 flex flex-col items-center justify-center text-slate-500 text-center gap-4 min-h-[220px]">
-          <Activity className="w-14 h-14 text-slate-300 animate-pulse" />
-          <div>
-            <h2 className="text-xl font-bold text-slate-400">{t('system_ready')}</h2>
-            <p className="max-w-xs mx-auto text-sm mt-1">{t('system_ready_desc')}</p>
+        <div className="flex-1 flex flex-col gap-4">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <Activity className="w-4 h-4" /> {t('system_ready')}
+            </h3>
+            <span className="text-[10px] text-slate-500 font-bold">{t('governorate_name')} - Live Map</span>
+          </div>
+          <div className="flex-1 min-h-[400px]">
+            <AswanMap />
           </div>
         </div>
       </div>
