@@ -138,6 +138,7 @@ export class CrisisSystem {
     if (deptShort === 'Ambulance')   return 'Ambulance - ' + suffix;
     if (deptShort === 'Water')       return 'Water Co. - ' + suffix;
     if (deptShort === 'Electricity') return 'Electricity Co. - ' + suffix;
+    if (deptShort === 'Gas')         return 'Gas Co. - ' + suffix;
     return deptShort + ' - ' + suffix;
   }
 
@@ -291,11 +292,11 @@ export class CrisisSystem {
     this.root = new DepartmentNode('Central Crisis System');
     const d1  = new DepartmentNode('First District', true);
     const d2  = new DepartmentNode('Second District', true);
-    const deptNames = ['Fire Dept', 'Police Dept', 'Ambulance', 'Water Co.', 'Electricity Co.'];
+    const deptNames = ['Fire Dept', 'Police Dept', 'Ambulance', 'Water Co.', 'Electricity Co.', 'Gas Co.'];
     const suffixes  = ['D1', 'D2'];
     const districts = [d1, d2];
     for (let di = 0; di < 2; di++) {
-      for (let j = 0; j < 5; j++) {
+      for (let j = 0; j < 6; j++) {
         districts[di].children.insertLast(new DepartmentNode(deptNames[j] + ' - ' + suffixes[di]));
       }
     }

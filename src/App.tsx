@@ -6,7 +6,6 @@ import { DepartmentDashboard } from './components/DepartmentDashboard';
 import { RecordsPage } from './components/RecordsPage';
 import { Chatbot } from './components/Chatbot';
 import { AuditSidebar } from './components/AuditSidebar';
-import './lib/i18n';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';

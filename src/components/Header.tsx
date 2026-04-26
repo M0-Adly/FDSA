@@ -2,10 +2,12 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../lib/store';
 import {
   ShieldAlert, FastForward, Moon, Sun, RotateCcw,
-  Archive, Activity, Clock, Zap, Search, X,
+  Archive, Activity, Clock, Zap, Search, X, Users, Shield,
 } from 'lucide-react';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../lib/useAuth';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1.1 Mini Stats Card
@@ -65,6 +67,7 @@ interface HeaderProps {
 
 export function Header({ onShowRecords }: HeaderProps) {
   const { t, i18n } = useTranslation();
+  const { profile } = useAuth();
   const {
     system, version, lang, theme,
     toggleTheme, setLang, setSelectedNode, setSearchFilter,
@@ -298,6 +301,22 @@ export function Header({ onShowRecords }: HeaderProps) {
             {/* Globe replaced with download icon */}
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
           </button>
+
+          <div className="w-px h-5 bg-slate-300 dark:bg-slate-700" />
+
+          {/* Portal nav links */}
+          <div className="flex items-center gap-1">
+            <Link to="/citizen"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition">
+              <Users className="w-3.5 h-3.5" />Citizen
+            </Link>
+            {profile?.role === 'admin' && (
+              <Link to="/admin"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition">
+                <Shield className="w-3.5 h-3.5" />Admin
+              </Link>
+            )}
+          </div>
 
           <div className="w-px h-5 bg-slate-300 dark:bg-slate-700" />
 

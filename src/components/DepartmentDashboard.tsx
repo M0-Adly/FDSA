@@ -163,11 +163,12 @@ export function DepartmentDashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {children.map(dept => {
-            const deptKey = dept.name.includes('Fire')      ? 'fire'
-                          : dept.name.includes('Police')    ? 'police'
-                          : dept.name.includes('Ambulance') ? 'ambulance'
-                          : dept.name.includes('Water')     ? 'water'
-                          : 'electricity';
+            const deptKey = dept.name.includes('Fire')        ? 'fire'
+                          : dept.name.includes('Police')      ? 'police'
+                          : dept.name.includes('Ambulance')   ? 'ambulance'
+                          : dept.name.includes('Water')       ? 'water'
+                          : dept.name.includes('Electricity') ? 'electricity'
+                          : 'gas';
             const suffix = dept.name.includes('D1') ? '- D1' : '- D2';
 
             return (
@@ -214,15 +215,17 @@ export function DepartmentDashboard() {
   // T8: resolved column in dept panel — show last 10 only (no filters here)
   const resolved = filterReports(node.resolvedArchive.toArray()).slice(0, 10);
 
-  const deptKey  = node.name.includes('Fire')      ? 'fire'
-                 : node.name.includes('Police')    ? 'police'
-                 : node.name.includes('Ambulance') ? 'ambulance'
-                 : node.name.includes('Water')     ? 'water'
-                 : 'electricity';
-  const deptType = node.name.includes('Fire')      ? 'Fire'
-                 : node.name.includes('Police')    ? 'Theft'
-                 : node.name.includes('Ambulance') ? 'Medical'
-                 : node.name.includes('Water')     ? 'Water Leak'
+  const deptKey  = node.name.includes('Fire')        ? 'fire'
+                 : node.name.includes('Police')      ? 'police'
+                 : node.name.includes('Ambulance')   ? 'ambulance'
+                 : node.name.includes('Water')       ? 'water'
+                 : node.name.includes('Electricity') ? 'electricity'
+                 : 'gas';
+  const deptType = node.name.includes('Fire')        ? 'Fire'
+                 : node.name.includes('Police')      ? 'Theft'
+                 : node.name.includes('Ambulance')   ? 'Medical'
+                 : node.name.includes('Water')       ? 'Water Leak'
+                 : node.name.includes('Gas')         ? 'Gas Leak'
                  : 'Power Outage';
   const suffix   = node.name.includes('D1') ? '- D1' : '- D2';
   const deptLabel = `${t(`departments.${deptKey}`)} ${suffix}`;
@@ -374,6 +377,7 @@ export function DepartmentDashboard() {
                     <option value={node.name.includes('D1') ? 'Police Dept - D1' : 'Police Dept - D2'}>{t('secondary_police')}</option>
                     <option value={node.name.includes('D1') ? 'Ambulance - D1'   : 'Ambulance - D2'}>{t('secondary_ambulance')}</option>
                     <option value={node.name.includes('D1') ? 'Fire Dept - D1'   : 'Fire Dept - D2'}>{t('secondary_fire')}</option>
+                    <option value={node.name.includes('D1') ? 'Gas Co. - D1'     : 'Gas Co. - D2'}>{t('secondary_gas') ?? 'Gas Co.'}</option>
                   </select>
                   <p className="text-[10px] text-slate-400 mt-1">{t('support_note')}</p>
                 </div>

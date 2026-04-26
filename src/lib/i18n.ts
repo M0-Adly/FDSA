@@ -108,7 +108,9 @@ const resources = {
         ambulance:   'Ambulance',
         water:       'Water Co.',
         electricity: 'Electricity Co.',
+        gas:         'Gas Co.',
       },
+      secondary_gas: 'Gas Co. (same district)',
       actions: { file: 'File Report', resolve: 'Resolve', transfer: 'Transfer' },
 
       // ── T2: Governorate banner — Aswan ────────────────────────────────────────
@@ -295,7 +297,9 @@ const resources = {
         ambulance:   'الإسعاف',
         water:       'شركة المياه',
         electricity: 'شركة الكهرباء',
+        gas:         'شركة الغاز',
       },
+      secondary_gas: 'شركة الغاز (نفس المنطقة)',
       actions: { file: 'تقديم بلاغ', resolve: 'حل البلاغ', transfer: 'نقل' },
 
       // ── T2: محافظة أسوان ──────────────────────────────────────────────────────
