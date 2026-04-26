@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import type { DbProfile } from '../lib/supabase';
+import { supabase } from './supabase';
+import type { DbProfile } from './supabase';
 
 interface AuthState {
   user: import('@supabase/supabase-js').User | null;

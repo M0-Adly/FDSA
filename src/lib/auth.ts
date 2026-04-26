@@ -71,53 +71,23 @@ export async function updateProfile(userId: string, updates: Partial<DbProfile>)
   return { error: error?.message ?? null };
 }
 
-/** Admin: create an employee account */
+/** Admin: create an employee account via Edge Function */
 export async function adminCreateEmployee(params: {
   empId: string;
   fullName: string;
   password: string;
   isAdmin?: boolean;
 }): Promise<{ error: string | null }> {
-  const email = `emp${params.empId}@gov.eg`;
-  // Use admin API via Edge Function or Service Role — for now, direct signup
-  const { data, error: authError } = await supabase.auth.signUp({
-    email,
-    password: params.password,
-    options: { data: { role: params.isAdmin ? 'admin' : 'employee' } },
+  const { data, error } = await supabase.functions.invoke('admin-create-user', {
+    body: {
+      empId: params.empId,
+      fullName: params.fullName,
+      password: params.password,
+      role: params.isAdmin ? 'admin' : 'employee'
+    }
   });
-  if (authError) return { error: authError.message };
-  const userId = data.user?.id;
-  if (!userId) return { error: 'User creation failed' };
 
-  const { error: profileError } = await supabase.from('profiles').upsert({
-    id: userId,
-    role: params.isAdmin ? 'admin' : 'employee',
-    full_name: params.fullName,
-    employee_id: params.empId,
-  });
-  return { error: profileError?.message ?? null };
-}
-
-/** Sync a CrisisSystem report to the Supabase DB */
-export async function syncReportToDB(params: {
-  userId: string | null;
-  departmentId: number | null;
-  type: string;
-  description: string;
-  priority: number;
-  status: string;
-  icsScore?: number;
-  simStep?: number;
-}): Promise<{ id: string | null; error: string | null }> {
-  const { data, error } = await supabase.from('reports').insert({
-    created_by:    params.userId,
-    department_id: params.departmentId,
-    type:          params.type,
-    description:   params.description,
-    priority:      params.priority,
-    status:        params.status,
-    ics_score:     params.icsScore ?? null,
-    sim_step:      params.simStep ?? null,
-  }).select('id').single();
-  return { id: data?.id ?? null, error: error?.message ?? null };
+  if (error) return { error: error.message };
+  if (data?.error) return { error: data.error };
+  return { error: null };
 }

@@ -237,9 +237,9 @@ function ProfileEditor({ userId, profile }: { userId: string; profile: { full_na
       }
     }
 
-    const updates: Record<string, string> = { full_name: name, phone };
+    const updates: Partial<DbProfile> = { full_name: name, phone };
     if (nationalIdUrl) updates.national_id_image_url = nationalIdUrl;
-    const { error: err } = await updateProfile(userId, updates as never);
+    const { error: err } = await updateProfile(userId, updates);
     if (err) { setError(err); } else { setSaved(true); setTimeout(() => setSaved(false), 3000); }
     setSaving(false);
   };

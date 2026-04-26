@@ -5,7 +5,7 @@ const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 export const supabase = createClient(supabaseUrl, supabaseAnon);
 
-// ── Database Types ────────────────────────────────────────────────────────────
+// ── Database Types ─────────────────────────────────────────────────────────────
 export interface DbProfile {
   id: string;
   role: 'citizen' | 'employee' | 'admin';
