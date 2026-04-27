@@ -1,73 +1,61 @@
-# React + TypeScript + Vite
+# National Crisis Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A production-grade, multi-portal emergency response platform built with **Next.js 15**, **TypeScript**, **Tailwind CSS**, and **Supabase**.
 
-Currently, two official plugins are available:
+## 🚀 Setup Instructions
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1.  **Clone the repository** (or use the provided files).
+2.  **Install dependencies**:
+    ```bash
+    npm install --legacy-peer-deps
+    ```
+3.  **Configure Environment Variables**:
+    Create a `.env.local` file in the root directory and add the following:
+    ```env
+    NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_URL
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+    SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
+    ```
+4.  **Database Setup**:
+    - Log in to your Supabase Dashboard.
+    - Go to the **SQL Editor**.
+    - Copy the contents of `supabase-migration.sql` and run them to set up tables, RLS policies, and seed data.
+5.  **Run Locally**:
+    ```bash
+    npm run dev
+    ```
+    Access the app at [http://localhost:3000](http://localhost:3000).
 
-## React Compiler
+## 🛡️ Portals
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Citizen Portal (`/citizen`)
+- **Signup**: Requires phone number (mapped to `phone@citizen.eg`) and National ID image upload.
+- **Dashboard**: Submit reports with district/department selection and priority control.
+- **My Reports**: Track status (Pending, Ongoing, Resolved, Escalated).
 
-## Expanding the ESLint configuration
+### Employee Portal (`/employee`)
+- **Login**: Use Employee ID (mapped to `emp<ID>@gov.eg`).
+- **Dashboard**: Coordinate crisis response using custom in-memory data structures (Linked Lists, Trees).
+- **Actions**:
+    - **Resolve**: Moves report to circular archive, promotes next pending.
+    - **Global Escalation**: Moves overdue reports (simStep diff > 3) to sibling districts.
+    - **Transfer**: Forced transfer between departments.
+    - **Undo**: Reverses the last coordination action.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Admin Panel (`/employee/admin`)
+- Accessible to users with the `admin` role.
+- Register new government employee accounts.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🧠 Custom Data Structures (In-Memory)
+The system uses custom implementation of:
+- `SinglyLinkedList`: Foundation for Queue/Stack.
+- `DoublyLinkedList`: Priority-sorted pending queue.
+- `CircularLinkedList`: Fixed-capacity resolved archive (10).
+- `General Tree`: Hierarchical department organization.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 🛠️ Tech Stack
+- **Framework**: Next.js 15 (App Router)
+- **Database/Auth**: Supabase
+- **Styling**: Tailwind CSS
+- **State**: React State + Custom Structures
+- **Icons**: Lucide React

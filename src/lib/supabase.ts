@@ -1,56 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL  as string;
-const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-export const supabase = createClient(supabaseUrl, supabaseAnon);
+// Client for general use (browser/server)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ── Database Types ────────────────────────────────────────────────────────────
-export interface DbProfile {
-  id: string;
-  role: 'citizen' | 'employee' | 'admin';
-  full_name: string | null;
-  phone: string | null;
-  national_id_image_url: string | null;
-  employee_id: string | null;
-  created_at: string;
-}
-
-export interface DbDistrict {
-  id: number;
-  name_en: string;
-  name_ar: string;
-}
-
-export interface DbDepartment {
-  id: number;
-  name_en: string;
-  name_ar: string;
-  district_id: number;
-}
-
-export interface DbReport {
-  id: string;
-  created_by: string | null;
-  department_id: number | null;
-  type: string;
-  description: string;
-  priority: number;
-  status: 'Pending' | 'Ongoing' | 'Resolved';
-  escalated: boolean;
-  ics_score: number | null;
-  created_at: string;
-  resolved_at: string | null;
-  duration: number | null;
-  sim_step: number | null;
-}
-
-export interface DbReportAction {
-  id: string;
-  report_id: string | null;
-  action_type: string;
-  performed_by: string | null;
-  from_dept: string | null;
-  to_dept: string | null;
-  created_at: string;
-}
+// Admin client for restricted operations (server-only)
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
