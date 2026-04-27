@@ -1,6 +1,6 @@
 import { DepartmentNode, Report } from './structures/DepartmentTree';
 import { Stack } from './structures/DataStructures';
-import { supabase } from '../supabase';
+import { supabase } from './supabase';
 
 export type ActionType = 'FILE' | 'RESOLVE' | 'ESCALATE' | 'TRANSFER' | 'UNDO' | 'PROMOTE';
 
