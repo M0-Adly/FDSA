@@ -1,16 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
-// Client for general use (browser/server)
+// Client for general use (browser/server components)
+// Uses the anon key - safe to expose to browser
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Admin client for restricted operations (server-only)
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+// DO NOT export supabaseAdmin from here (service role key must stay server-side only)
+// Use createServerSupabaseAdmin() inside API routes instead
