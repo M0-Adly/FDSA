@@ -147,6 +147,41 @@ export class CrisisManager {
     await this.logAction(reportId, 'RESOLVE', userId);
   }
 
+  async startResponse(reportId: string, userId: string) {
+    let foundNode: DepartmentNode | null = null;
+    let foundReport: Report | null = null;
+
+    const departments = this.getAllDepartmentNodes();
+    for (const node of departments) {
+      const result = node.findReport(reportId);
+      if (result && result.list === 'pending') {
+        foundNode = node;
+        foundReport = result.report;
+        break;
+      }
+    }
+
+    if (!foundNode || !foundReport) return;
+
+    // Check if we can add more ongoing
+    if (foundNode.ongoingReports.size() >= this.MAX_ONGOING) {
+      throw new Error('Maximum ongoing reports reached for this department. Resolve others first.');
+    }
+
+    this.simStep++;
+    
+    // Update DB
+    await supabase.from('reports').update({ status: 'ongoing' }).eq('id', reportId);
+
+    // Update Memory
+    foundNode.pendingReports.removeNode(r => r.id === reportId);
+    foundReport.status = 'ongoing';
+    foundNode.ongoingReports.insertLast(foundReport);
+
+    this.undoStack.push({ type: 'PROMOTE', reportId: reportId, fromDeptId: foundNode.id });
+    await this.logAction(reportId, 'START', userId);
+  }
+
   async escalateAll(userId: string) {
     this.simStep++;
     const departments = this.getAllDepartmentNodes();

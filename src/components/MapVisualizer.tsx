@@ -51,8 +51,8 @@ export function MapVisualizer({ rootNode }: any) {
   return (
     <div className="w-full h-full rounded-2xl overflow-hidden border border-white/10 relative z-0">
       <MapContainer 
-        center={[24.095, 32.905]} 
-        zoom={13} 
+        center={[24.0889, 32.8998]} 
+        zoom={14} 
         style={{ height: '100%', width: '100%', background: '#080c1a' }}
         zoomControl={false}
       >

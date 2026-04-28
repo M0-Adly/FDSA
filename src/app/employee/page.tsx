@@ -60,6 +60,16 @@ export default function EmployeeDashboard() {
     alert('Global Escalation Triggered');
   };
 
+  const handleStartResponse = async (reportId: string) => {
+    if (!user) return;
+    try {
+      await manager.startResponse(reportId, user.id);
+      refreshState();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   const handleTransfer = async (reportId: string) => {
     if (!user || !selectedNode) return;
     const targetDistrictId = selectedNode.district_id === 1 ? 2 : 1;
@@ -260,14 +270,22 @@ export default function EmployeeDashboard() {
                               <h4 className="font-bold text-white/90">{report.type}</h4>
                               <p className="text-xs text-white/50 line-clamp-1 mt-1">{report.description}</p>
                             </div>
-                            <button 
-                              onClick={() => handleTransfer(report.id)}
-                              className="shrink-0 ml-4 flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-white/50 border border-white/10 rounded-lg hover:bg-white/10 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider"
-                              title="Transfer to sibling district"
-                            >
-                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
-                              Transfer
-                            </button>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => handleStartResponse(report.id)}
+                                className="px-3 py-1.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider"
+                              >
+                                Start
+                              </button>
+                              <button 
+                                onClick={() => handleTransfer(report.id)}
+                                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-white/50 border border-white/10 rounded-lg hover:bg-white/10 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider"
+                                title="Transfer to sibling district"
+                              >
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
+                                Transfer
+                              </button>
+                            </div>
                           </div>
                           <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
                             <span className={`px-2 py-0.5 rounded border text-[10px] font-black uppercase ${getPriorityColor(report.priority)}`}>

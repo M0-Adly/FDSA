@@ -159,14 +159,41 @@ export default function AdminPanel() {
             ) : (
               <div className="space-y-4">
                 {pendingUsers.map(user => (
-                  <div key={user.id} className="p-4 bg-black/20 border border-white/5 rounded-xl flex items-center justify-between">
-                    <div>
-                      <h3 className="font-bold text-white text-sm">{user.full_name || 'Citizen'}</h3>
-                      <p className="text-xs text-white/40">{user.phone}</p>
+                  <div key={user.id} className="p-6 bg-black/20 border border-white/5 rounded-2xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-bold text-white text-base">{user.full_name || 'Citizen'}</h3>
+                        <p className="text-xs text-white/40">{user.phone}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleApproval(user.id, 'approved')} className="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-500/30 transition">Approve Account</button>
+                        <button onClick={() => handleApproval(user.id, 'rejected')} className="px-4 py-2 bg-red-500/10 text-red-400 rounded-xl text-xs font-bold hover:bg-red-500/20 transition">Reject</button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleApproval(user.id, 'approved')} className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-500/30">Approve</button>
-                      <button onClick={() => handleApproval(user.id, 'rejected')} className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/30">Reject</button>
+
+                    {/* Registration Details */}
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                      <div>
+                        <p className="text-[10px] text-white/20 uppercase font-bold mb-1">Registration Date</p>
+                        <p className="text-xs text-white/60">{new Date(user.created_at).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-white/20 uppercase font-bold mb-1">Auth Email</p>
+                        <p className="text-xs text-white/60">{user.phone}@citizen.eg</p>
+                      </div>
+                    </div>
+
+                    {/* ID Image */}
+                    <div>
+                      <p className="text-[10px] text-white/20 uppercase font-bold mb-2">National ID Image</p>
+                      {user.national_id_image_url ? (
+                        <div className="relative group rounded-xl overflow-hidden border border-white/10 aspect-video bg-black/40">
+                          <img src={user.national_id_image_url} alt="ID" className="w-full h-full object-contain" />
+                          <a href={user.national_id_image_url} target="_blank" className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-xs font-bold text-white">Click to view full size</a>
+                        </div>
+                      ) : (
+                        <div className="p-4 bg-white/5 rounded-xl text-center text-[10px] text-white/30 italic">No image uploaded</div>
+                      )}
                     </div>
                   </div>
                 ))}
