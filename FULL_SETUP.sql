@@ -1,11 +1,9 @@
 -- ============================================================
 -- National Crisis Management System — FULL DATABASE SETUP
--- انسخ هذا الكود بالكامل وحطه في Supabase SQL Editor وشغله مرة واحدة
+-- انسخ هذا الكود بالكامل وحطه في Supabase SQL Editor
 -- ============================================================
 
-
--- ============================================================
--- STEP 1: إنشاء الجداول (Tables)
+-- STEP 1: إنشاء الجداول
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -54,7 +52,6 @@ CREATE TABLE IF NOT EXISTS public.report_actions (
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
-
 -- ============================================================
 -- STEP 2: تفعيل Row Level Security
 -- ============================================================
@@ -65,43 +62,41 @@ ALTER TABLE public.departments    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reports        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.report_actions ENABLE ROW LEVEL SECURITY;
 
-
 -- ============================================================
--- STEP 3: حذف السياسات القديمة وإنشاء الجديدة
+-- STEP 3: السياسات (Policies) - حذف القديم وإنشاء جديد
 -- ============================================================
 
--- Districts & Departments — يقرأهم أي شخص
+-- Districts & Departments
 DROP POLICY IF EXISTS "districts_public_read"   ON public.districts;
 DROP POLICY IF EXISTS "departments_public_read" ON public.departments;
 CREATE POLICY "districts_public_read"   ON public.districts   FOR SELECT USING (true);
 CREATE POLICY "departments_public_read" ON public.departments FOR SELECT USING (true);
 
--- Profiles — السياسات
-DROP POLICY IF EXISTS "own_profile_select"  ON public.profiles;
-DROP POLICY IF EXISTS "own_profile_update"  ON public.profiles;
-DROP POLICY IF EXISTS "own_profile_insert"  ON public.profiles;
-DROP POLICY IF EXISTS "service_insert"      ON public.profiles;
+-- Profiles
+DROP POLICY IF EXISTS "own_profile_select" ON public.profiles;
+DROP POLICY IF EXISTS "own_profile_update" ON public.profiles;
+DROP POLICY IF EXISTS "own_profile_insert" ON public.profiles;
 
--- قراءة البروفايل: المستخدم يشوف بتاعه + الموظف/أدمن يشوف الكل
+-- قراءة: المستخدم يشوف بروفايله + الموظف/الأدمن يشوف الكل
 CREATE POLICY "own_profile_select" ON public.profiles
   FOR SELECT USING (
     auth.uid() = id
     OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('employee', 'admin'))
   );
 
--- تعديل البروفايل: المستخدم يعدل بروفايله بس
+-- تعديل: المستخدم يعدل بروفايله فقط
 CREATE POLICY "own_profile_update" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
--- إنشاء بروفايل: يسمح للمستخدم بإنشاء بروفايله (يُستخدم من الـ Trigger)
+-- إنشاء: المستخدم المسجل ينشئ بروفايله
 CREATE POLICY "own_profile_insert" ON public.profiles
-  FOR INSERT WITH CHECK (auth.uid() = id OR auth.uid() IS NULL);
+  FOR INSERT WITH CHECK (auth.uid() = id);
 
--- Reports — السياسات
-DROP POLICY IF EXISTS "reports_select"  ON public.reports;
-DROP POLICY IF EXISTS "reports_insert"  ON public.reports;
-DROP POLICY IF EXISTS "reports_update"  ON public.reports;
-DROP POLICY IF EXISTS "reports_delete"  ON public.reports;
+-- Reports
+DROP POLICY IF EXISTS "reports_select" ON public.reports;
+DROP POLICY IF EXISTS "reports_insert" ON public.reports;
+DROP POLICY IF EXISTS "reports_update" ON public.reports;
+DROP POLICY IF EXISTS "reports_delete" ON public.reports;
 
 CREATE POLICY "reports_select" ON public.reports
   FOR SELECT USING (
@@ -132,9 +127,8 @@ CREATE POLICY "actions_all" ON public.report_actions
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('employee', 'admin'))
   );
 
-
 -- ============================================================
--- STEP 4: Function + Trigger (ينشئ البروفايل تلقائياً لكل مستخدم جديد)
+-- STEP 4: Trigger - ينشئ البروفايل تلقائياً لكل مستخدم جديد
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -143,7 +137,7 @@ BEGIN
   INSERT INTO public.profiles (id, full_name, role, phone, national_id_image_url)
   VALUES (
     new.id,
-    new.raw_user_meta_data->>'full_name',
+    COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
     COALESCE(new.raw_user_meta_data->>'role', 'citizen'),
     new.raw_user_meta_data->>'phone',
     new.raw_user_meta_data->>'national_id_image_url'
@@ -158,9 +152,33 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
+-- ============================================================
+-- STEP 5: دالة مساعدة لتعيين دور الموظفين/الأدمن
+-- بعد إضافة الموظف في Supabase > Authentication > Users
+-- شغّل: SELECT set_user_role('email@example.com', 'employee');
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.set_user_role(user_email TEXT, user_role TEXT)
+RETURNS TEXT AS $$
+DECLARE
+  target_id UUID;
+BEGIN
+  SELECT id INTO target_id FROM auth.users WHERE email = user_email;
+
+  IF target_id IS NULL THEN
+    RETURN 'ERROR: User not found with email: ' || user_email;
+  END IF;
+
+  INSERT INTO public.profiles (id, role, full_name)
+  VALUES (target_id, user_role, split_part(user_email, '@', 1))
+  ON CONFLICT (id) DO UPDATE SET role = user_role;
+
+  RETURN 'SUCCESS: ' || user_email || ' is now ' || user_role;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
--- STEP 5: البيانات الأساسية (Seed Data)
+-- STEP 6: البيانات الأساسية
 -- ============================================================
 
 INSERT INTO public.districts (id, name_en, name_ar) VALUES
@@ -183,17 +201,16 @@ INSERT INTO public.departments (name_en, name_ar, district_id) VALUES
   ('Gas Co.',         'شركة الغاز',    2)
 ON CONFLICT DO NOTHING;
 
-
 -- ============================================================
--- STEP 6: Storage Bucket لصور البطاقات
+-- STEP 7: Storage Bucket
 -- ============================================================
 
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('national-ids', 'national-ids', true)
 ON CONFLICT (id) DO NOTHING;
 
-DROP POLICY IF EXISTS "storage_upload"  ON storage.objects;
-DROP POLICY IF EXISTS "storage_select"  ON storage.objects;
+DROP POLICY IF EXISTS "storage_upload" ON storage.objects;
+DROP POLICY IF EXISTS "storage_select" ON storage.objects;
 
 CREATE POLICY "storage_upload" ON storage.objects
   FOR INSERT WITH CHECK (bucket_id = 'national-ids' AND auth.uid() IS NOT NULL);
@@ -201,8 +218,14 @@ CREATE POLICY "storage_upload" ON storage.objects
 CREATE POLICY "storage_select" ON storage.objects
   FOR SELECT USING (bucket_id = 'national-ids' AND auth.uid() IS NOT NULL);
 
-
 -- ============================================================
 -- خلصت! ✅
--- الجداول + السياسات + الـ Trigger + البيانات + Storage
+--
+-- لإضافة موظف/أدمن:
+-- 1. روح Supabase > Authentication > Users > Add User
+-- 2. ضيف الإيميل والباسورد
+-- 3. شغّل في SQL Editor:
+--    SELECT set_user_role('email@example.com', 'employee');
+--    أو للأدمن:
+--    SELECT set_user_role('email@example.com', 'admin');
 -- ============================================================

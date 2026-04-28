@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
 export default function EmployeeLogin() {
-  const [employeeId, setEmployeeId] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,21 +16,44 @@ export default function EmployeeLogin() {
     setLoading(true);
     setError('');
 
-    // يقبل رقم الموظف (مثلاً 1001) أو الإيميل الكامل
-    const email = employeeId.includes('@')
-      ? employeeId
-      : `emp${employeeId}@gov.eg`;
+    try {
+      // 1. تسجيل الدخول بالإيميل والباسورد مباشرة
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+      if (signInError) throw signInError;
+      if (!data.user) throw new Error('Login failed');
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-    } else {
+      // 2. التحقق من الدور — الموظف أو الأدمن فقط
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        // البروفايل مش موجود — اعمله كموظف
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          role: 'employee',
+          full_name: data.user.email?.split('@')[0] || 'Employee',
+        }, { onConflict: 'id' });
+        router.push('/employee');
+        return;
+      }
+
+      if (profile.role !== 'employee' && profile.role !== 'admin') {
+        await supabase.auth.signOut();
+        throw new Error('Access denied: This portal is for employees only.');
+      }
+
       router.push('/employee');
+
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+      setLoading(false);
     }
   };
 
@@ -40,7 +63,7 @@ export default function EmployeeLogin() {
         <div className="text-center mb-8">
           <div className="text-4xl mb-2">🛡️</div>
           <h2 className="text-3xl font-bold text-white">Gov Portal</h2>
-          <p className="text-slate-400">Employee Login</p>
+          <p className="text-slate-400">Employee / Admin Login</p>
         </div>
 
         {error && (
@@ -51,22 +74,23 @@ export default function EmployeeLogin() {
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Employee ID</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Email Address
+            </label>
             <input
-              type="text"
+              type="email"
               required
               className="w-full bg-slate-900 border border-slate-700 text-white p-3 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
-              placeholder="e.g. 1001"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="employee@example.com"
             />
-            <p className="text-slate-500 text-xs mt-1">
-              ادخل رقم الموظف فقط (مثال: 1001) يتم إنشاؤه عبر Admin Panel
-            </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Password
+            </label>
             <input
               type="password"
               required
@@ -86,9 +110,9 @@ export default function EmployeeLogin() {
         </form>
 
         <div className="mt-6 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
-          <p className="text-slate-400 text-xs text-center">
-            🔐 لإنشاء حساب موظف، يجب على المدير استخدام{' '}
-            <span className="text-emerald-400 font-mono">/employee/admin</span>
+          <p className="text-slate-400 text-xs text-center leading-relaxed">
+            🔐 أضف الموظفين من لوحة تحكم Supabase<br/>
+            <span className="text-slate-500">Authentication → Users → Add User</span>
           </p>
         </div>
       </div>
