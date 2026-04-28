@@ -6,18 +6,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { CrisisManager } from '@/lib/CrisisManager';
-import { DepartmentNode, Report } from '@/lib/structures/DepartmentTree';
-import { 
-  Activity, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
-  ChevronRight, 
-  ArrowRightLeft, 
-  Undo2, 
-  Zap,
-  MessageSquare
-} from 'lucide-react';
+import { DepartmentNode } from '@/lib/structures/DepartmentTree';
 
 export default function EmployeeDashboard() {
   const [manager] = useState(() => new CrisisManager());
@@ -25,42 +14,25 @@ export default function EmployeeDashboard() {
   const [selectedNode, setSelectedNode] = useState<DepartmentNode | null>(null);
   const [user, setUser] = useState<any>(null);
   const [simStep, setSimStep] = useState(0);
-  const [isArabic, setIsArabic] = useState(false);
   
-  const router = useRouter();
-
-  useEffect(() => {
-    init();
-  }, []);
+  useEffect(() => { init(); }, []);
 
   const init = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.replace('/employee/login');
-        return;
-      }
-
+      if (!session) { window.location.replace('/employee/login'); return; }
       setUser(session.user);
 
-      // محاولة إنشاء/تحديث البروفايل (لا تمنع الدخول لو فشلت)
       try {
         await supabase.from('profiles').upsert({
-          id: session.user.id,
-          role: 'employee',
-          full_name: session.user.email?.split('@')[0] || 'Employee',
+          id: session.user.id, role: 'employee', full_name: session.user.email?.split('@')[0] || 'Employee',
         }, { onConflict: 'id', ignoreDuplicates: true });
-      } catch {
-        // تجاهل أي خطأ في البروفايل
-      }
+      } catch {}
 
-      // initialize manager — even if it fails we still show the dashboard
       try {
         await manager.initialize();
         setSimStep(manager.simStep);
-      } catch (managerErr) {
-        console.warn('Manager init warning:', managerErr);
-      }
+      } catch (err) { console.warn('Manager init warning:', err); }
 
       setInitialized(true);
     } catch (err) {
@@ -71,7 +43,6 @@ export default function EmployeeDashboard() {
 
   const refreshState = () => {
     setSimStep(manager.simStep);
-    // Force re-render of components using the manager
     setSelectedNode(selectedNode ? manager.root.findNode(selectedNode.id) : null);
   };
 
@@ -90,7 +61,6 @@ export default function EmployeeDashboard() {
 
   const handleTransfer = async (reportId: string) => {
     if (!user || !selectedNode) return;
-    // Simple transfer to sibling district for demo
     const targetDistrictId = selectedNode.district_id === 1 ? 2 : 1;
     const targetDept = manager.root.children.toArray()
       .find(d => d.district_id === targetDistrictId)?.children.toArray()
@@ -102,59 +72,68 @@ export default function EmployeeDashboard() {
     }
   };
 
-  // Helper to get all departments for the tree visualization
-  const departments = useMemo(() => {
-    if (!initialized) return [];
-    const dists = manager.root.children.toArray();
-    return dists.flatMap(dist => dist.children.toArray());
-  }, [initialized, manager]);
+  const getPriorityColor = (p: number) => {
+    if (p >= 4) return 'text-red-400 bg-red-500/10 border-red-500/20';
+    if (p === 3) return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+    return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+  };
 
   if (!initialized) return (
-    <div className="flex-1 flex items-center justify-center bg-slate-950">
+    <div className="flex-1 flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
         <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
-        <p className="text-slate-400 font-mono">Initializing Neural Crisis Network...</p>
+        <p className="text-white/40 font-mono text-sm tracking-widest uppercase font-bold">Initializing Neural Crisis Network...</p>
       </div>
     </div>
   );
 
   return (
-    <div className={`flex-1 flex h-full ${isArabic ? 'text-right' : 'text-left'}`} dir={isArabic ? 'rtl' : 'ltr'}>
+    <div className="flex-1 flex h-full overflow-hidden">
       {/* Sidebar / Tree View */}
-      <div className="w-80 border-r border-slate-800 bg-slate-900/30 overflow-y-auto p-4">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500">Departments</h2>
-          <button 
-            onClick={() => setIsArabic(!isArabic)}
-            className="text-[10px] px-2 py-1 bg-slate-800 rounded border border-slate-700 hover:bg-slate-700 transition"
-          >
-            {isArabic ? 'ENGLISH' : 'العربية'}
-          </button>
+      <div className="w-80 border-r border-white/10 bg-white/[0.02] overflow-y-auto flex flex-col backdrop-blur-sm">
+        <div className="p-5 border-b border-white/5">
+          <h2 className="text-xs font-black uppercase tracking-widest text-white/50 flex items-center gap-2">
+            <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            System Hierarchy
+          </h2>
         </div>
 
-        <div className="space-y-6">
+        <div className="p-3 space-y-6 flex-1 overflow-y-auto">
           {manager.root.children.toArray().map(district => (
             <div key={district.id} className="space-y-2">
-              <div className="flex items-center gap-2 text-slate-400 px-2 py-1">
-                <ChevronRight size={14} className="rotate-90" />
-                <span className="text-sm font-bold">{isArabic ? district.name_ar : district.name_en}</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span className="text-xs font-bold text-white/70 uppercase tracking-wider">{district.name_en}</span>
               </div>
-              <div className="pl-4 space-y-1">
-                {district.children.toArray().map(dept => (
-                  <button
-                    key={dept.id}
-                    onClick={() => setSelectedNode(dept)}
-                    className={`w-full flex items-center justify-between p-2 rounded-lg text-sm transition ${
-                      selectedNode?.id === dept.id ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'hover:bg-slate-800 text-slate-300'
-                    }`}
-                  >
-                    <span>{isArabic ? dept.name_ar : dept.name_en}</span>
-                    <div className="flex gap-2 items-center">
-                      <span className="text-[10px] font-bold bg-blue-500/20 text-blue-400 px-1.5 rounded">{dept.ongoingReports.size()}</span>
-                      <span className="text-[10px] font-bold bg-yellow-500/20 text-yellow-400 px-1.5 rounded">{dept.pendingReports.size()}</span>
-                    </div>
-                  </button>
-                ))}
+              <div className="pl-3 space-y-1">
+                {district.children.toArray().map(dept => {
+                  const isSelected = selectedNode?.id === dept.id;
+                  const oSize = dept.ongoingReports.size();
+                  const pSize = dept.pendingReports.size();
+                  return (
+                    <button
+                      key={dept.id}
+                      onClick={() => setSelectedNode(dept)}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl text-sm transition-all border ${
+                        isSelected 
+                          ? 'bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
+                          : 'bg-white/[0.02] border-transparent hover:bg-white/5 hover:border-white/10'
+                      }`}
+                    >
+                      <span className={`font-semibold ${isSelected ? 'text-emerald-400' : 'text-white/70'}`}>
+                        {dept.name_en}
+                      </span>
+                      <div className="flex gap-1.5 items-center">
+                        <span className={`w-6 h-6 flex items-center justify-center rounded-lg text-[10px] font-black border ${oSize === 3 ? 'bg-red-500/20 text-red-400 border-red-500/30' : oSize > 0 ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-white/5 text-white/30 border-white/10'}`} title="Ongoing Reports">
+                          {oSize}
+                        </span>
+                        <span className={`w-6 h-6 flex items-center justify-center rounded-lg text-[10px] font-black border ${pSize > 0 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-white/5 text-white/30 border-white/10'}`} title="Pending Queue">
+                          {pSize}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -162,139 +141,161 @@ export default function EmployeeDashboard() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05),transparent)]">
+      <div className="flex-1 flex flex-col bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.03),transparent)]">
         {/* Actions Bar */}
-        <div className="h-14 border-b border-slate-800 px-6 flex items-center justify-between bg-slate-900/50">
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-2">
-              <Activity size={18} className="text-emerald-500" />
-              <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">Sim Step:</span>
-              <span className="font-bold text-emerald-400 font-mono text-lg">{simStep}</span>
+        <div className="h-16 border-b border-white/5 px-6 flex items-center justify-between bg-white/[0.02] backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-xl border border-white/10">
+              <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <span className="text-xs font-bold text-white/50 uppercase tracking-widest">Sim Step</span>
+              <span className="font-black text-emerald-400 font-mono text-lg ml-1">{simStep}</span>
             </div>
             
-            <div className="h-4 w-[1px] bg-slate-800"></div>
+            <div className="h-6 w-px bg-white/10" />
 
             <button 
               onClick={handleEscalateAll}
-              className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-md hover:bg-red-500/20 transition text-xs font-bold"
+              className="group flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/10 text-xs font-black uppercase tracking-wider"
             >
-              <Zap size={14} />
-              GLOBAL ESCALATION
+              <svg className="w-4 h-4 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              Global Escalation
             </button>
           </div>
-
-          <button className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-slate-300 border border-slate-700 rounded-md hover:bg-slate-700 transition text-xs font-bold">
-            <Undo2 size={14} />
-            UNDO ACTION
-          </button>
         </div>
 
         {/* Dashboard Panels */}
         <div className="flex-1 overflow-y-auto p-6">
           {selectedNode ? (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Ongoing Reports */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold flex items-center gap-2">
-                    <Clock size={20} className="text-blue-400" />
-                    Ongoing Reports
-                    <span className="text-xs font-normal text-slate-500">({selectedNode.ongoingReports.size()}/3)</span>
-                  </h3>
+            <div className="h-full flex flex-col">
+              {/* Dept Header */}
+              <div className="mb-6 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                  <span className="text-2xl">🏢</span>
                 </div>
-                
-                <div className="space-y-3">
-                  {selectedNode.ongoingReports.toArray().length === 0 && (
-                    <div className="p-10 border-2 border-dashed border-slate-800 rounded-xl text-center text-slate-500 italic text-sm">
-                      No active emergencies in this department.
-                    </div>
-                  )}
-                  {selectedNode.ongoingReports.toArray().map(report => (
-                    <div key={report.id} className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-xl group hover:border-emerald-500/30 transition">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h4 className="font-bold text-slate-100">{report.type}</h4>
-                          <p className="text-xs text-slate-500 font-mono">ID: {report.id.substring(0,8)}</p>
-                        </div>
-                        <button 
-                          onClick={() => handleResolve(report.id)}
-                          className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500 hover:text-white transition text-xs font-bold"
-                        >
-                          RESOLVE
-                        </button>
-                      </div>
-                      <p className="text-sm text-slate-400 mb-4 leading-relaxed">{report.description}</p>
-                      <div className="flex items-center justify-between pt-4 border-t border-slate-800">
-                        <div className="flex gap-4">
-                           <div className="flex flex-col">
-                             <span className="text-[10px] text-slate-500 uppercase">Priority</span>
-                             <span className={`text-sm font-bold ${report.priority > 3 ? 'text-red-400' : 'text-blue-400'}`}>{report.priority}</span>
-                           </div>
-                           <div className="flex flex-col">
-                             <span className="text-[10px] text-slate-500 uppercase">Started Step</span>
-                             <span className="text-sm font-mono text-slate-300">{report.timestamp}</span>
-                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div>
+                  <h2 className="text-2xl font-black text-white">{selectedNode.name_en}</h2>
+                  <div className="flex items-center gap-3 text-xs font-bold text-white/40 uppercase tracking-wider mt-1">
+                    <span>Active: <span className="text-white/80">{selectedNode.ongoingReports.size()}/3</span></span>
+                    <span>•</span>
+                    <span>Pending: <span className="text-white/80">{selectedNode.pendingReports.size()}</span></span>
+                  </div>
                 </div>
               </div>
 
-              {/* Pending Queue */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <AlertTriangle size={20} className="text-yellow-400" />
-                  Pending Queue
-                  <span className="text-xs font-normal text-slate-500">(Priority Sorted)</span>
-                </h3>
-                
-                <div className="space-y-3">
-                  {selectedNode.pendingReports.toArray().length === 0 && (
-                    <div className="p-10 border-2 border-dashed border-slate-800 rounded-xl text-center text-slate-500 italic text-sm">
-                      Queue is empty.
-                    </div>
-                  )}
-                  {selectedNode.pendingReports.toArray().map(report => (
-                    <div key={report.id} className="bg-slate-900/40 border border-slate-800 border-l-yellow-500/50 border-l-4 rounded-xl p-4 transition hover:bg-slate-800/60">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-bold text-slate-200">{report.type}</h4>
-                          <p className="text-xs text-slate-500">{report.description.substring(0, 60)}...</p>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 flex-1 min-h-0">
+                {/* Ongoing Reports */}
+                <div className="flex flex-col bg-white/5 border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+                  <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between shrink-0">
+                    <h3 className="font-black text-sm uppercase tracking-widest text-blue-400 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                      Ongoing Responses
+                    </h3>
+                    <span className="px-2.5 py-1 bg-blue-500/20 text-blue-400 rounded-lg text-xs font-black border border-blue-500/30">
+                      {selectedNode.ongoingReports.size()}/3
+                    </span>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                    {selectedNode.ongoingReports.toArray().length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-white/20">
+                        <svg className="w-16 h-16 mb-4 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                        <p className="font-bold text-sm">No active emergencies</p>
+                      </div>
+                    ) : (
+                      selectedNode.ongoingReports.toArray().map(report => (
+                        <div key={report.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-blue-500/30 transition-colors group relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h4 className="font-black text-lg text-white/90">{report.type}</h4>
+                              <p className="text-[10px] text-white/30 font-mono mt-0.5">ID: {report.id.substring(0,8)}</p>
+                            </div>
+                            <button 
+                              onClick={() => handleResolve(report.id)}
+                              className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl hover:bg-emerald-500 hover:text-white transition-all text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-500/10"
+                            >
+                              Resolve
+                            </button>
+                          </div>
+                          <p className="text-sm text-white/60 mb-5 leading-relaxed">{report.description}</p>
+                          <div className="flex items-center gap-3 pt-4 border-t border-white/5">
+                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border ${getPriorityColor(report.priority)}`}>
+                              Priority {report.priority}
+                            </span>
+                            <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold text-white/40 uppercase font-mono">
+                              Step: {report.timestamp}
+                            </span>
+                          </div>
                         </div>
-                        <button 
-                          onClick={() => handleTransfer(report.id)}
-                          className="flex items-center gap-1 px-2 py-1 bg-slate-800 text-slate-400 rounded hover:text-white transition text-[10px] font-bold"
-                        >
-                          <ArrowRightLeft size={10} />
-                          TRANSFER
-                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Pending Queue */}
+                <div className="flex flex-col bg-white/5 border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+                  <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between shrink-0">
+                    <h3 className="font-black text-sm uppercase tracking-widest text-amber-400 flex items-center gap-2">
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      Pending Queue
+                    </h3>
+                    <span className="px-2.5 py-1 bg-amber-500/20 text-amber-400 rounded-lg text-xs font-black border border-amber-500/30">
+                      {selectedNode.pendingReports.size()}
+                    </span>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                    {selectedNode.pendingReports.toArray().length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-white/20">
+                        <svg className="w-16 h-16 mb-4 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        <p className="font-bold text-sm">Queue is clear</p>
                       </div>
-                      <div className="mt-3 flex gap-4">
-                         <span className="text-[10px] font-mono text-slate-500">PRIORITY: {report.priority}</span>
-                         <span className="text-[10px] font-mono text-slate-500">STEP: {report.timestamp}</span>
-                      </div>
-                    </div>
-                  ))}
+                    ) : (
+                      selectedNode.pendingReports.toArray().map(report => (
+                        <div key={report.id} className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/[0.08] transition-colors relative overflow-hidden group">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-bold text-white/90">{report.type}</h4>
+                              <p className="text-xs text-white/50 line-clamp-1 mt-1">{report.description}</p>
+                            </div>
+                            <button 
+                              onClick={() => handleTransfer(report.id)}
+                              className="shrink-0 ml-4 flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-white/50 border border-white/10 rounded-lg hover:bg-white/10 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider"
+                              title="Transfer to sibling district"
+                            >
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
+                              Transfer
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
+                            <span className={`px-2 py-0.5 rounded border text-[10px] font-black uppercase ${getPriorityColor(report.priority)}`}>
+                              P{report.priority}
+                            </span>
+                            <span className="text-[10px] font-mono text-white/30 uppercase">
+                              Wait: {simStep - report.timestamp} steps
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-4">
-              <div className="w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center border border-slate-800 shadow-inner">
-                 <Activity size={40} className="text-slate-800" />
+            <div className="h-full flex flex-col items-center justify-center text-white/30 space-y-6">
+              <div className="w-32 h-32 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shadow-[0_0_50px_rgba(255,255,255,0.02)] relative">
+                <div className="absolute inset-0 border-2 border-white/10 rounded-full animate-ping opacity-20"></div>
+                <svg className="w-12 h-12 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
               </div>
-              <p className="text-sm font-mono">Select a department node to begin coordination</p>
+              <div className="text-center">
+                <p className="text-lg font-black uppercase tracking-widest text-white/50 mb-2">Select a Department</p>
+                <p className="text-xs font-mono">Click a node in the hierarchy tree to begin coordination</p>
+              </div>
             </div>
           )}
         </div>
-      </div>
-
-      {/* AI Assistant FAB / Panel could go here */}
-      <div className="absolute bottom-8 right-8">
-        <button className="w-14 h-14 bg-emerald-600 rounded-full shadow-2xl shadow-emerald-600/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
-          <MessageSquare className="text-white" />
-        </button>
       </div>
     </div>
   );

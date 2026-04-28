@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
 
 interface Report {
   id: string;
@@ -27,8 +26,9 @@ export default function CitizenDashboard() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState<any>(null);
-  
-  const router = useRouter();
+  const [tab, setTab] = useState<'reports' | 'submit'>('reports');
+  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -44,15 +44,10 @@ export default function CitizenDashboard() {
   const checkAuth = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.replace('/citizen/login');
-        return;
-      }
-
+      if (!session) { window.location.replace('/citizen/login'); return; }
       setUser(session.user);
       fetchMyReports(session.user.id);
-    } catch (err) {
-      console.error('Auth check error:', err);
+    } catch {
       window.location.replace('/citizen/login');
     }
   };
@@ -63,18 +58,12 @@ export default function CitizenDashboard() {
   };
 
   const fetchDepartments = async (districtId: number) => {
-    const { data } = await supabase
-      .from('departments')
-      .select('*')
-      .eq('district_id', districtId);
+    const { data } = await supabase.from('departments').select('*').eq('district_id', districtId);
     if (data) setDepartments(data);
   };
 
   const fetchMyReports = async (userId: string) => {
-    const { data } = await supabase
-      .from('reports')
-      .select('*')
-      .eq('created_by', userId)
+    const { data } = await supabase.from('reports').select('*').eq('created_by', userId)
       .order('created_at', { ascending: false });
     if (data) setReports(data);
     setLoading(false);
@@ -83,10 +72,8 @@ export default function CitizenDashboard() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDept || !user) return;
-    
     setSubmitting(true);
     
-    // Auto detect type based on dept name (fallback mechanism)
     const dept = departments.find(d => d.id.toString() === selectedDept);
     let type = 'Other';
     if (dept) {
@@ -99,147 +86,231 @@ export default function CitizenDashboard() {
     }
 
     const { error } = await supabase.from('reports').insert({
-      department_id: parseInt(selectedDept),
-      district_id: parseInt(selectedDistrict),
-      description,
-      priority,
-      type,
-      created_by: user.id
+      department_id: parseInt(selectedDept), district_id: parseInt(selectedDistrict),
+      description, priority, type, created_by: user.id
     });
 
     setSubmitting(false);
-
     if (!error) {
-      setDescription('');
-      setPriority(3);
-      setSelectedDept('');
+      setDescription(''); setPriority(3); setSelectedDept('');
       fetchMyReports(user.id);
-      alert('Report submitted successfully!');
+      setToast('Report submitted successfully!');
+      setTimeout(() => setToast(null), 3000);
+      setTab('reports');
     } else {
-      alert('Error submitting report: ' + error.message);
+      setToast('Error: ' + error.message);
+      setTimeout(() => setToast(null), 4000);
     }
   };
 
   const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'ongoing': return 'bg-blue-100 text-blue-800';
-      case 'resolved': return 'bg-green-100 text-green-800';
-      case 'escalated': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
+    switch (status) {
+      case 'pending':   return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+      case 'ongoing':   return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      case 'resolved':  return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+      case 'escalated': return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+      default:          return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
     }
   };
 
-  if (loading) return <div className="text-center mt-20 text-xl">Loading...</div>;
+  const getPriorityColor = (p: number) => {
+    if (p >= 4) return 'text-red-400';
+    if (p === 3) return 'text-amber-400';
+    return 'text-blue-400';
+  };
+
+  const filteredReports = statusFilter === 'All' 
+    ? reports 
+    : reports.filter(r => r.status.toLowerCase() === statusFilter.toLowerCase());
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+        <p className="text-white/30 font-mono text-sm">Loading your dashboard...</p>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="grid md:grid-cols-2 gap-8">
-      {/* Submit Report Form */}
-      <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-        <h2 className="text-2xl font-bold mb-6 text-blue-600">Submit New Report</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
-            <select 
-              required
-              className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-              value={selectedDistrict}
-              onChange={(e) => {
-                setSelectedDistrict(e.target.value);
-                setSelectedDept('');
-              }}
-            >
-              <option value="">Select a district...</option>
-              {districts.map(d => (
-                <option key={d.id} value={d.id}>{d.name_en} - {d.name_ar}</option>
-              ))}
-            </select>
-          </div>
-          
-          {selectedDistrict && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-              <select 
-                required
-                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                value={selectedDept}
-                onChange={(e) => setSelectedDept(e.target.value)}
-              >
-                <option value="">Select a department...</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name_en} - {d.name_ar}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea 
-              required
-              rows={4}
-              className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the emergency..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Priority (1-5)</label>
-            <div className="flex items-center gap-4">
-              <input 
-                type="range" 
-                min="1" 
-                max="5" 
-                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                value={priority}
-                onChange={(e) => setPriority(parseInt(e.target.value))}
-              />
-              <span className="font-bold text-lg text-blue-600">{priority}</span>
-            </div>
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={submitting || !selectedDept}
-            className="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 transition font-medium disabled:opacity-50"
-          >
-            {submitting ? 'Submitting...' : 'Submit Report'}
-          </button>
-        </form>
+    <>
+      {/* Welcome */}
+      <div className="mb-8 animate-fade-in">
+        <h1 className="text-3xl font-black">
+          Welcome, <span className="text-indigo-400">{user?.email?.replace('@citizen.eg', '') || 'Citizen'}</span>
+        </h1>
+        <p className="text-white/30 text-sm mt-1">Submit emergency reports and track their status in real time.</p>
       </div>
 
-      {/* My Reports List */}
-      <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800">My Reports</h2>
-        {reports.length === 0 ? (
-          <div className="text-center text-gray-500 py-10 bg-gray-50 rounded-lg">
-            No reports submitted yet.
+      {/* Stat Cards */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        {[
+          { label: 'Total Reports', value: reports.length, color: 'indigo', icon: '📋' },
+          { label: 'Ongoing', value: reports.filter(r => r.status === 'ongoing').length, color: 'blue', icon: '🔵' },
+          { label: 'Resolved', value: reports.filter(r => r.status === 'resolved').length, color: 'emerald', icon: '✅' },
+        ].map(({ label, value, color, icon }) => (
+          <div key={label} className={`bg-${color}-500/10 border border-${color}-500/20 rounded-2xl p-5 text-center backdrop-blur-sm transition hover:bg-${color}-500/15`}>
+            <span className="text-2xl">{icon}</span>
+            <p className="text-3xl font-black mt-2">{value}</p>
+            <p className="text-[11px] text-white/40 mt-1">{label}</p>
           </div>
-        ) : (
-          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-            {reports.map(report => (
-              <div key={report.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition">
-                <div className="flex justify-between items-start mb-2">
-                  <span className={`px-2 py-1 rounded text-xs font-semibold uppercase ${getStatusColor(report.status)}`}>
-                    {report.status}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {new Date(report.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-                <h3 className="font-semibold text-lg mb-1">{report.type}</h3>
-                <p className="text-sm text-gray-600 mb-2">{report.description}</p>
-                <div className="text-xs text-gray-500 flex justify-between">
-                  <span>Priority: {report.priority}</span>
-                  <span>ID: {report.id.substring(0,8)}...</span>
-                </div>
+        ))}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 bg-white/5 rounded-2xl border border-white/10 mb-6 w-fit">
+        {[
+          { key: 'reports' as const, label: 'My Reports', icon: '📄' },
+          { key: 'submit' as const, label: 'New Report', icon: '📝' },
+        ].map(({ key, label, icon }) => (
+          <button key={key} onClick={() => setTab(key)}
+            className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              tab === key ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'
+            }`}>
+            <span>{icon}</span>{label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="animate-fade-in">
+        {/* My Reports Tab */}
+        {tab === 'reports' && (
+          <div className="space-y-4">
+            {/* Status Filter */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <svg className="w-4 h-4 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              {(['All', 'Pending', 'Ongoing', 'Resolved'] as const).map(s => (
+                <button key={s} onClick={() => setStatusFilter(s)}
+                  className={`text-xs px-3.5 py-1.5 rounded-lg font-bold transition-all ${
+                    statusFilter === s ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-white/40 hover:text-white/70'
+                  }`}>
+                  {s}
+                </button>
+              ))}
+              <button onClick={() => user && fetchMyReports(user.id)} className="ml-auto text-white/30 hover:text-white/60 transition">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              </button>
+            </div>
+
+            {filteredReports.length === 0 ? (
+              <div className="text-center py-16 text-white/20">
+                <span className="text-4xl mb-4 block">📋</span>
+                <p className="font-bold">No reports found</p>
+                <p className="text-sm mt-1">Submit your first emergency report</p>
+                <button onClick={() => setTab('submit')} className="mt-4 px-4 py-2 bg-indigo-600/30 border border-indigo-500/30 rounded-xl text-indigo-400 text-sm font-bold hover:bg-indigo-600/50 transition">
+                  Submit Report →
+                </button>
               </div>
-            ))}
+            ) : (
+              <div className="space-y-3">
+                {filteredReports.map(report => (
+                  <div key={report.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-indigo-500/20 hover:bg-white/[0.07] transition-all group">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border ${getStatusColor(report.status)}`}>
+                          {report.status}
+                        </span>
+                        <span className="text-xs text-white/20 font-mono">#{report.id.substring(0,8)}</span>
+                      </div>
+                      <span className="text-xs text-white/20">
+                        {new Date(report.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-lg text-white/90 mb-1">{report.type}</h3>
+                    <p className="text-sm text-white/40 mb-4 leading-relaxed">{report.description}</p>
+                    <div className="flex items-center gap-6 pt-3 border-t border-white/5">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-white/20 uppercase">Priority</span>
+                        <span className={`text-sm font-black ${getPriorityColor(report.priority)}`}>{report.priority}/5</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Submit Tab */}
+        {tab === 'submit' && (
+          <div className="max-w-lg">
+            <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
+              <h2 className="text-lg font-black mb-5 flex items-center gap-2">
+                <span>📝</span> Submit Emergency Report
+              </h2>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">District</label>
+                  <select required value={selectedDistrict}
+                    onChange={e => { setSelectedDistrict(e.target.value); setSelectedDept(''); }}
+                    className="input-premium appearance-none cursor-pointer">
+                    <option value="" className="bg-slate-900">Select a district...</option>
+                    {districts.map(d => (
+                      <option key={d.id} value={d.id} className="bg-slate-900">{d.name_en} - {d.name_ar}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedDistrict && (
+                  <div>
+                    <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Department</label>
+                    <select required value={selectedDept}
+                      onChange={e => setSelectedDept(e.target.value)}
+                      className="input-premium appearance-none cursor-pointer">
+                      <option value="" className="bg-slate-900">Select department...</option>
+                      {departments.map(d => (
+                        <option key={d.id} value={d.id} className="bg-slate-900">{d.name_en} - {d.name_ar}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Description</label>
+                  <textarea required rows={4} value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    placeholder="Describe the emergency in detail..."
+                    className="input-premium resize-none" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                    Priority Level: <span className={`${getPriorityColor(priority)} font-black`}>{priority}</span>
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input type="range" min="1" max="5" value={priority}
+                      onChange={e => setPriority(parseInt(e.target.value))}
+                      className="flex-1 h-1.5 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                    <div className="flex gap-1">
+                      {[1,2,3,4,5].map(p => (
+                        <button key={p} type="button" onClick={() => setPriority(p)}
+                          className={`w-7 h-7 rounded-lg text-xs font-black transition-all ${
+                            priority === p ? 'bg-indigo-600 text-white scale-110' : 'bg-white/5 text-white/30 hover:text-white/60'
+                          }`}>{p}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" disabled={submitting || !selectedDept}
+                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-black rounded-xl transition-all shadow-lg shadow-indigo-500/30 disabled:opacity-50 mt-2">
+                  {submitting ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+                  ) : 'Submit Report'}
+                </button>
+              </form>
+            </div>
           </div>
         )}
       </div>
-    </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl font-bold text-sm flex items-center gap-3 border backdrop-blur-md bg-emerald-500/90 border-emerald-400 text-white animate-slide-up">
+          ✅ {toast}
+        </div>
+      )}
+    </>
   );
 }
