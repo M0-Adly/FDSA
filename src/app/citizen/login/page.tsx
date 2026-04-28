@@ -17,33 +17,34 @@ export default function CitizenLogin() {
     setLoading(true);
     setError('');
 
-    const email = `${phone}@citizen.eg`;
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const email = `${phone}@citizen.eg`;
+      
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-    } else {
+      if (signInError) throw new Error('Login Error: ' + signInError.message);
+      if (!data?.user) throw new Error('Login failed: No user returned');
+
       // التأكد من الدور قبل التوجيه
-      const { data: profile } = await supabase
+      const { data: profile, error: profileErr } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', data.user.id)
-        .single();
-        
+        .maybeSingle();
+          
       if (profile && profile.role !== 'citizen') {
          await supabase.auth.signOut();
-         setError('Access Denied: هذا الحساب مسجل كموظف. الرجاء استخدام بوابة الموظفين.');
-         setLoading(false);
-         return;
+         throw new Error('Access Denied: هذا الحساب مسجل كموظف. الرجاء استخدام بوابة الموظفين.');
       }
 
-      // Use window.location for reliable full-page navigation
-      window.location.href = '/citizen';
+      window.location.replace('/citizen');
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'An error occurred');
+      setLoading(false);
     }
   };
 
