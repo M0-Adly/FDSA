@@ -34,29 +34,41 @@ export default function EmployeeDashboard() {
   }, []);
 
   const init = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      router.push('/employee/login');
-      return;
-    }
-    
-    // verify role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
-      
-    if (profile?.role !== 'employee' && profile?.role !== 'admin') {
-      await supabase.auth.signOut();
-      router.push('/employee/login');
-      return;
-    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/employee/login');
+        return;
+      }
 
-    setUser(session.user);
-    await manager.initialize();
-    setSimStep(manager.simStep);
-    setInitialized(true);
+      // verify role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (!profile || (profile.role !== 'employee' && profile.role !== 'admin')) {
+        await supabase.auth.signOut();
+        router.push('/employee/login');
+        return;
+      }
+
+      setUser(session.user);
+
+      // initialize manager — even if it fails we still show the dashboard
+      try {
+        await manager.initialize();
+        setSimStep(manager.simStep);
+      } catch (managerErr) {
+        console.warn('Manager init warning (DB may need setup):', managerErr);
+      }
+
+      setInitialized(true);
+    } catch (err) {
+      console.error('Dashboard init error:', err);
+      router.push('/employee/login');
+    }
   };
 
   const refreshState = () => {

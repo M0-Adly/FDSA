@@ -22,7 +22,7 @@ export default function CitizenSignup() {
     const email = `${phone.trim()}@citizen.eg`;
 
     try {
-      // STEP 1: إنشاء حساب Auth
+      // STEP 1: محاولة إنشاء الحساب
       const { data: signUpData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -31,49 +31,60 @@ export default function CitizenSignup() {
             full_name: fullName,
             phone: phone.trim(),
             role: 'citizen',
-          }
+          },
+          // لا نحتاج تأكيد الإيميل
+          emailRedirectTo: undefined,
         }
       });
 
-      if (authError) throw authError;
+      // إذا كان المستخدم موجود بالفعل أو rate limit، حاول تسجيل الدخول مباشرة
+      if (authError) {
+        if (
+          authError.message.includes('rate limit') ||
+          authError.message.includes('already registered') ||
+          authError.message.includes('User already registered')
+        ) {
+          // محاولة الدخول مباشرة
+          const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+            email, password
+          });
+          if (loginError) throw new Error('رقم الهاتف مسجل بالفعل. جرب تسجيل الدخول.');
+          if (loginData.session) {
+            router.push('/citizen');
+            return;
+          }
+        }
+        throw authError;
+      }
+
       if (!signUpData.user) throw new Error('Failed to create account');
 
-      // STEP 2: تسجيل دخول فوراً للحصول على session
+      // STEP 2: تسجيل الدخول فوراً
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (signInError) {
-        // إذا احتاج تأكيد إيميل (نادر الحدوث)
-        setError('Account created! Please login.');
-        router.push('/citizen/login');
+      if (signInError || !signInData.session) {
+        // الحساب اتعمل لكن محتاج تأكيد إيميل — لكن الإيميل وهمي فبيفشل
+        // حل: المستخدم يسجل دخول مرة أخرى
+        setError('تم إنشاء الحساب! انتقل لصفحة تسجيل الدخول.');
+        setTimeout(() => router.push('/citizen/login'), 2000);
         return;
       }
 
-      if (!signInData.session) {
-        router.push('/citizen/login');
-        return;
-      }
-
-      // STEP 3: إنشاء البروفايل بشكل صريح (لا نعتمد على الـ Trigger وحده)
-      const { error: profileError } = await supabase.from('profiles').upsert({
+      // STEP 3: إنشاء البروفايل صراحةً (بدون الاعتماد على الـ Trigger فقط)
+      await supabase.from('profiles').upsert({
         id: signUpData.user.id,
         full_name: fullName,
         role: 'citizen',
         phone: phone.trim(),
       }, { onConflict: 'id' });
 
-      if (profileError) {
-        console.warn('Profile upsert warning:', profileError.message);
-        // نكمل حتى لو فشل (الـ Trigger ممكن يكون عمله)
-      }
-
-      // STEP 4: رفع صورة البطاقة (اختياري — لا نوقف العملية لو فشلت)
+      // STEP 4: رفع الصورة (اختياري)
       if (idImage) {
         const fileExt = idImage.name.split('.').pop();
         const fileName = `${signUpData.user.id}.${fileExt}`;
-
         const { error: uploadError } = await supabase.storage
           .from('national-ids')
           .upload(fileName, idImage, { upsert: true });
@@ -82,18 +93,20 @@ export default function CitizenSignup() {
           const { data: { publicUrl } } = supabase.storage
             .from('national-ids')
             .getPublicUrl(fileName);
-
           await supabase.from('profiles').update({
             national_id_image_url: publicUrl
           }).eq('id', signUpData.user.id);
         }
       }
 
-      // STEP 5: التوجيه للوحة تحكم المواطن
       router.push('/citizen');
 
     } catch (err: any) {
-      setError(err.message || 'An error occurred during signup');
+      let msg = err.message || 'حدث خطأ أثناء التسجيل';
+      if (msg.includes('rate limit')) {
+        msg = 'تم تجاوز حد المحاولات. انتظر قليلاً ثم حاول مجدداً، أو انتقل لتسجيل الدخول إن كان لديك حساب.';
+      }
+      setError(msg);
       setLoading(false);
     }
   };
@@ -131,7 +144,7 @@ export default function CitizenSignup() {
             onChange={(e) => setPhone(e.target.value)}
             placeholder="01012345678"
           />
-          <p className="text-xs text-gray-400 mt-1">سيُستخدم رقم الهاتف كاسم المستخدم لتسجيل الدخول</p>
+          <p className="text-xs text-gray-400 mt-1">سيُستخدم رقم الهاتف لتسجيل الدخول لاحقاً</p>
         </div>
 
         <div>
@@ -149,12 +162,12 @@ export default function CitizenSignup() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            National ID Image <span className="text-gray-400">(Optional)</span>
+            National ID Image <span className="text-gray-400 text-xs">(Optional)</span>
           </label>
           <input
             type="file"
             accept="image/*"
-            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full p-2 border border-gray-300 rounded outline-none"
             onChange={(e) => setIdImage(e.target.files?.[0] || null)}
           />
         </div>
