@@ -1,6 +1,6 @@
 -- ============================================================
--- National Crisis Management System
--- FULL SETUP — انسخ الكود ده كله وحطه في Supabase SQL Editor
+-- National Crisis Management System — FULL DATABASE SETUP
+-- انسخ هذا الكود بالكامل وحطه في Supabase SQL Editor وشغله مرة واحدة
 -- ============================================================
 
 
@@ -8,7 +8,6 @@
 -- STEP 1: إنشاء الجداول (Tables)
 -- ============================================================
 
--- جدول الملفات الشخصية للمستخدمين
 CREATE TABLE IF NOT EXISTS public.profiles (
   id                    UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   role                  TEXT NOT NULL DEFAULT 'citizen' CHECK (role IN ('citizen', 'employee', 'admin')),
@@ -19,14 +18,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at            TIMESTAMPTZ DEFAULT NOW()
 );
 
--- جدول الأحياء (Districts)
 CREATE TABLE IF NOT EXISTS public.districts (
   id      SERIAL PRIMARY KEY,
   name_en TEXT NOT NULL,
   name_ar TEXT NOT NULL
 );
 
--- جدول الأقسام (Departments)
 CREATE TABLE IF NOT EXISTS public.departments (
   id          SERIAL PRIMARY KEY,
   name_en     TEXT NOT NULL,
@@ -34,7 +31,6 @@ CREATE TABLE IF NOT EXISTS public.departments (
   district_id INT REFERENCES public.districts(id) ON DELETE CASCADE
 );
 
--- جدول البلاغات (Reports)
 CREATE TABLE IF NOT EXISTS public.reports (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_by    UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -49,7 +45,6 @@ CREATE TABLE IF NOT EXISTS public.reports (
   resolved_at   TIMESTAMPTZ
 );
 
--- جدول سجل الإجراءات (Audit Trail)
 CREATE TABLE IF NOT EXISTS public.report_actions (
   id           SERIAL PRIMARY KEY,
   report_id    UUID REFERENCES public.reports(id) ON DELETE CASCADE,
@@ -61,7 +56,7 @@ CREATE TABLE IF NOT EXISTS public.report_actions (
 
 
 -- ============================================================
--- STEP 2: تفعيل Row Level Security على كل الجداول
+-- STEP 2: تفعيل Row Level Security
 -- ============================================================
 
 ALTER TABLE public.profiles       ENABLE ROW LEVEL SECURITY;
@@ -72,101 +67,74 @@ ALTER TABLE public.report_actions ENABLE ROW LEVEL SECURITY;
 
 
 -- ============================================================
--- STEP 3: السياسات (RLS Policies)
+-- STEP 3: حذف السياسات القديمة وإنشاء الجديدة
 -- ============================================================
 
--- ─── Districts & Departments: يقرأهم أي شخص (حتى بدون تسجيل دخول) ───
+-- Districts & Departments — يقرأهم أي شخص
 DROP POLICY IF EXISTS "districts_public_read"   ON public.districts;
 DROP POLICY IF EXISTS "departments_public_read" ON public.departments;
-
 CREATE POLICY "districts_public_read"   ON public.districts   FOR SELECT USING (true);
 CREATE POLICY "departments_public_read" ON public.departments FOR SELECT USING (true);
 
+-- Profiles — السياسات
+DROP POLICY IF EXISTS "own_profile_select"  ON public.profiles;
+DROP POLICY IF EXISTS "own_profile_update"  ON public.profiles;
+DROP POLICY IF EXISTS "own_profile_insert"  ON public.profiles;
+DROP POLICY IF EXISTS "service_insert"      ON public.profiles;
 
--- ─── Profiles ────────────────────────────────────────────────────────────────
-DROP POLICY IF EXISTS "own_profile_select"   ON public.profiles;
-DROP POLICY IF EXISTS "own_profile_update"   ON public.profiles;
-DROP POLICY IF EXISTS "own_profile_insert"   ON public.profiles;
-DROP POLICY IF EXISTS "service_role_insert"  ON public.profiles;
-
--- المستخدم يشوف بروفايله الشخصي + الموظفين والأدمن يشوفوا الكل
+-- قراءة البروفايل: المستخدم يشوف بتاعه + الموظف/أدمن يشوف الكل
 CREATE POLICY "own_profile_select" ON public.profiles
   FOR SELECT USING (
     auth.uid() = id
-    OR EXISTS (
-      SELECT 1 FROM public.profiles p2
-      WHERE p2.id = auth.uid() AND p2.role IN ('employee', 'admin')
-    )
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('employee', 'admin'))
   );
 
--- كل مستخدم يعدل على بروفايله بس
+-- تعديل البروفايل: المستخدم يعدل بروفايله بس
 CREATE POLICY "own_profile_update" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
--- كل مستخدم يعمل إنشاء لبروفايله بس
+-- إنشاء بروفايل: يسمح للمستخدم بإنشاء بروفايله (يُستخدم من الـ Trigger)
 CREATE POLICY "own_profile_insert" ON public.profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
+  FOR INSERT WITH CHECK (auth.uid() = id OR auth.uid() IS NULL);
 
+-- Reports — السياسات
+DROP POLICY IF EXISTS "reports_select"  ON public.reports;
+DROP POLICY IF EXISTS "reports_insert"  ON public.reports;
+DROP POLICY IF EXISTS "reports_update"  ON public.reports;
+DROP POLICY IF EXISTS "reports_delete"  ON public.reports;
 
--- ─── Reports ─────────────────────────────────────────────────────────────────
-DROP POLICY IF EXISTS "citizens_own_reports_select" ON public.reports;
-DROP POLICY IF EXISTS "citizens_insert_reports"     ON public.reports;
-DROP POLICY IF EXISTS "employees_update_reports"    ON public.reports;
-DROP POLICY IF EXISTS "employees_delete_reports"    ON public.reports;
-
--- المواطن يشوف بلاغاته بس / الموظف والأدمن يشوفوا الكل
-CREATE POLICY "citizens_own_reports_select" ON public.reports
+CREATE POLICY "reports_select" ON public.reports
   FOR SELECT USING (
     auth.uid() = created_by
-    OR EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('employee', 'admin')
-    )
+    OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('employee', 'admin'))
   );
 
--- أي مستخدم مسجل يقدر يضيف بلاغ
-CREATE POLICY "citizens_insert_reports" ON public.reports
+CREATE POLICY "reports_insert" ON public.reports
   FOR INSERT WITH CHECK (
     auth.uid() = created_by
-    OR EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('employee', 'admin')
-    )
+    OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('employee', 'admin'))
   );
 
--- الموظف والأدمن بس يعدلوا على البلاغات
-CREATE POLICY "employees_update_reports" ON public.reports
+CREATE POLICY "reports_update" ON public.reports
   FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('employee', 'admin')
-    )
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('employee', 'admin'))
   );
 
--- الموظف والأدمن بس يحذفوا البلاغات
-CREATE POLICY "employees_delete_reports" ON public.reports
+CREATE POLICY "reports_delete" ON public.reports
   FOR DELETE USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('employee', 'admin')
-    )
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('employee', 'admin'))
   );
 
-
--- ─── Report Actions ──────────────────────────────────────────────────────────
-DROP POLICY IF EXISTS "employees_report_actions" ON public.report_actions;
-
-CREATE POLICY "employees_report_actions" ON public.report_actions
+-- Report Actions
+DROP POLICY IF EXISTS "actions_all" ON public.report_actions;
+CREATE POLICY "actions_all" ON public.report_actions
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role IN ('employee', 'admin')
-    )
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('employee', 'admin'))
   );
 
 
 -- ============================================================
--- STEP 4: Function + Trigger (ينشئ البروفايل تلقائياً عند تسجيل مستخدم جديد)
+-- STEP 4: Function + Trigger (ينشئ البروفايل تلقائياً لكل مستخدم جديد)
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -185,9 +153,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- احذف القديم لو موجود وانشئ جديد
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
@@ -197,60 +163,46 @@ CREATE TRIGGER on_auth_user_created
 -- STEP 5: البيانات الأساسية (Seed Data)
 -- ============================================================
 
--- الأحياء
 INSERT INTO public.districts (id, name_en, name_ar) VALUES
   (1, 'First District',  'الحي الأول'),
   (2, 'Second District', 'الحي الثاني')
 ON CONFLICT (id) DO NOTHING;
 
--- أقسام الحي الأول
 INSERT INTO public.departments (name_en, name_ar, district_id) VALUES
-  ('Fire Dept',        'المطافئ',          1),
-  ('Police Dept',      'الشرطة',           1),
-  ('Ambulance',        'الإسعاف',          1),
-  ('Water Co.',        'شركة المياه',      1),
-  ('Electricity Co.',  'شركة الكهرباء',    1),
-  ('Gas Co.',          'شركة الغاز',       1)
-ON CONFLICT DO NOTHING;
-
--- أقسام الحي الثاني
-INSERT INTO public.departments (name_en, name_ar, district_id) VALUES
-  ('Fire Dept',        'المطافئ',          2),
-  ('Police Dept',      'الشرطة',           2),
-  ('Ambulance',        'الإسعاف',          2),
-  ('Water Co.',        'شركة المياه',      2),
-  ('Electricity Co.',  'شركة الكهرباء',    2),
-  ('Gas Co.',          'شركة الغاز',       2)
+  ('Fire Dept',       'المطافئ',       1),
+  ('Police Dept',     'الشرطة',        1),
+  ('Ambulance',       'الإسعاف',       1),
+  ('Water Co.',       'شركة المياه',   1),
+  ('Electricity Co.', 'شركة الكهرباء', 1),
+  ('Gas Co.',         'شركة الغاز',    1),
+  ('Fire Dept',       'المطافئ',       2),
+  ('Police Dept',     'الشرطة',        2),
+  ('Ambulance',       'الإسعاف',       2),
+  ('Water Co.',       'شركة المياه',   2),
+  ('Electricity Co.', 'شركة الكهرباء', 2),
+  ('Gas Co.',         'شركة الغاز',    2)
 ON CONFLICT DO NOTHING;
 
 
 -- ============================================================
--- STEP 6: إعداد Storage bucket للصور (National IDs)
+-- STEP 6: Storage Bucket لصور البطاقات
 -- ============================================================
 
--- إنشاء الـ Bucket (private - مش public)
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('national-ids', 'national-ids', true)
 ON CONFLICT (id) DO NOTHING;
 
--- سياسة: أي مستخدم مسجل يرفع صورته
-DROP POLICY IF EXISTS "users_upload_ids"      ON storage.objects;
-DROP POLICY IF EXISTS "users_view_own_ids"    ON storage.objects;
-DROP POLICY IF EXISTS "employees_view_all_ids" ON storage.objects;
+DROP POLICY IF EXISTS "storage_upload"  ON storage.objects;
+DROP POLICY IF EXISTS "storage_select"  ON storage.objects;
 
-CREATE POLICY "users_upload_ids" ON storage.objects
-  FOR INSERT WITH CHECK (
-    bucket_id = 'national-ids' AND auth.uid() IS NOT NULL
-  );
+CREATE POLICY "storage_upload" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'national-ids' AND auth.uid() IS NOT NULL);
 
--- أي مستخدم مسجل يشوف الصور (للتبسيط)
-CREATE POLICY "users_view_own_ids" ON storage.objects
-  FOR SELECT USING (
-    bucket_id = 'national-ids' AND auth.uid() IS NOT NULL
-  );
+CREATE POLICY "storage_select" ON storage.objects
+  FOR SELECT USING (bucket_id = 'national-ids' AND auth.uid() IS NOT NULL);
 
 
 -- ============================================================
--- خلصت! كل حاجة اتعملت ✅
--- الجداول، السياسات، الـ Trigger، البيانات، والـ Storage
+-- خلصت! ✅
+-- الجداول + السياسات + الـ Trigger + البيانات + Storage
 -- ============================================================
