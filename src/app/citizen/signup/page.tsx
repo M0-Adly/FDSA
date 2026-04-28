@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function CitizenSignup() {
@@ -12,7 +11,6 @@ export default function CitizenSignup() {
   const [idImage, setIdImage] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +20,7 @@ export default function CitizenSignup() {
     const email = `${phone.trim()}@citizen.eg`;
 
     try {
-      // STEP 1: محاولة إنشاء الحساب
+      // STEP 1: إنشاء حساب Auth
       const { data: signUpData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -32,48 +30,38 @@ export default function CitizenSignup() {
             phone: phone.trim(),
             role: 'citizen',
           },
-          // لا نحتاج تأكيد الإيميل
-          emailRedirectTo: undefined,
         }
       });
 
-      // إذا كان المستخدم موجود بالفعل أو rate limit، حاول تسجيل الدخول مباشرة
       if (authError) {
-        if (
-          authError.message.includes('rate limit') ||
-          authError.message.includes('already registered') ||
-          authError.message.includes('User already registered')
-        ) {
-          // محاولة الدخول مباشرة
-          const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-            email, password
-          });
-          if (loginError) throw new Error('رقم الهاتف مسجل بالفعل. جرب تسجيل الدخول.');
-          if (loginData.session) {
-            router.push('/citizen');
-            return;
-          }
+        if (authError.message.includes('rate limit')) {
+          throw new Error('تم تجاوز حد المحاولات. انتظر دقيقة وحاول مجدداً.');
+        }
+        if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
+          // المستخدم موجود — حاول تسجيل الدخول
+          const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password });
+          if (loginErr) throw new Error('رقم الهاتف مسجل بالفعل. جرب تسجيل الدخول بكلمة السر الصحيحة.');
+          window.location.href = '/citizen';
+          return;
         }
         throw authError;
       }
 
       if (!signUpData.user) throw new Error('Failed to create account');
 
-      // STEP 2: تسجيل الدخول فوراً
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      // STEP 2: تسجيل دخول فوراً
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (signInError || !signInData.session) {
-        // الحساب اتعمل لكن محتاج تأكيد إيميل — لكن الإيميل وهمي فبيفشل
-        // حل: المستخدم يسجل دخول مرة أخرى
-        setError('تم إنشاء الحساب! انتقل لصفحة تسجيل الدخول.');
-        setTimeout(() => router.push('/citizen/login'), 2000);
+      if (signInError) {
+        // الحساب اتعمل لكن محتاج تأكيد
+        window.location.href = '/citizen/login';
         return;
       }
 
-      // STEP 3: إنشاء البروفايل صراحةً (بدون الاعتماد على الـ Trigger فقط)
+      // STEP 3: إنشاء البروفايل صراحة
       await supabase.from('profiles').upsert({
         id: signUpData.user.id,
         full_name: fullName,
@@ -83,30 +71,31 @@ export default function CitizenSignup() {
 
       // STEP 4: رفع الصورة (اختياري)
       if (idImage) {
-        const fileExt = idImage.name.split('.').pop();
-        const fileName = `${signUpData.user.id}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from('national-ids')
-          .upload(fileName, idImage, { upsert: true });
-
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage
+        try {
+          const fileExt = idImage.name.split('.').pop();
+          const fileName = `${signUpData.user.id}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage
             .from('national-ids')
-            .getPublicUrl(fileName);
-          await supabase.from('profiles').update({
-            national_id_image_url: publicUrl
-          }).eq('id', signUpData.user.id);
+            .upload(fileName, idImage, { upsert: true });
+
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('national-ids')
+              .getPublicUrl(fileName);
+            await supabase.from('profiles').update({
+              national_id_image_url: publicUrl
+            }).eq('id', signUpData.user.id);
+          }
+        } catch {
+          // تجاهل خطأ رفع الصورة
         }
       }
 
-      router.push('/citizen');
+      // STEP 5: التوجيه
+      window.location.href = '/citizen';
 
     } catch (err: any) {
-      let msg = err.message || 'حدث خطأ أثناء التسجيل';
-      if (msg.includes('rate limit')) {
-        msg = 'تم تجاوز حد المحاولات. انتظر قليلاً ثم حاول مجدداً، أو انتقل لتسجيل الدخول إن كان لديك حساب.';
-      }
-      setError(msg);
+      setError(err.message || 'حدث خطأ أثناء التسجيل');
       setLoading(false);
     }
   };

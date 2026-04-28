@@ -19,7 +19,7 @@ export default function CitizenLogin() {
 
     const email = `${phone}@citizen.eg`;
     
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -28,7 +28,22 @@ export default function CitizenLogin() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push('/citizen');
+      // التأكد من الدور قبل التوجيه
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+        
+      if (profile && profile.role !== 'citizen') {
+         await supabase.auth.signOut();
+         setError('Access Denied: هذا الحساب مسجل كموظف. الرجاء استخدام بوابة الموظفين.');
+         setLoading(false);
+         return;
+      }
+
+      // Use window.location for reliable full-page navigation
+      window.location.href = '/citizen';
     }
   };
 

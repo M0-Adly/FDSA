@@ -2,14 +2,12 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
 
 export default function EmployeeLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,30 +24,28 @@ export default function EmployeeLogin() {
       if (signInError) throw signInError;
       if (!data.user) throw new Error('Login failed');
 
-      // 2. التحقق من الدور — الموظف أو الأدمن فقط
-      const { data: profile, error: profileError } = await supabase
+      // 2. ضمان وجود بروفايل — upsert بدون انتظار
+      const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', data.user.id)
         .single();
 
-      if (profileError || !profile) {
+      if (!profile) {
         // البروفايل مش موجود — اعمله كموظف
         await supabase.from('profiles').upsert({
           id: data.user.id,
           role: 'employee',
           full_name: data.user.email?.split('@')[0] || 'Employee',
         }, { onConflict: 'id' });
-        router.push('/employee');
-        return;
-      }
-
-      if (profile.role !== 'employee' && profile.role !== 'admin') {
+      } else if (profile.role !== 'employee' && profile.role !== 'admin') {
+        // البروفايل موجود بس مش موظف (مواطن مثلاً)
         await supabase.auth.signOut();
-        throw new Error('Access denied: This portal is for employees only.');
+        throw new Error('Access Denied: هذا الحساب ليس مسجلاً كموظف أو مسؤول.');
       }
 
-      router.push('/employee');
+      // 3. التوجيه باستخدام window.location (أكثر موثوقية من router.push)
+      window.location.href = '/employee';
 
     } catch (err: any) {
       setError(err.message || 'An error occurred');
