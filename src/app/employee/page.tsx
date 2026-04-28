@@ -7,7 +7,8 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { CrisisManager } from '@/lib/CrisisManager';
 import { DepartmentNode } from '@/lib/structures/DepartmentTree';
-
+import { TreeVisualizer } from '@/components/TreeVisualizer';
+import { MapVisualizer } from '@/components/MapVisualizer';
 export default function EmployeeDashboard() {
   const [manager] = useState(() => new CrisisManager());
   const [initialized, setInitialized] = useState(false);
@@ -284,14 +285,16 @@ export default function EmployeeDashboard() {
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-white/30 space-y-6">
-              <div className="w-32 h-32 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shadow-[0_0_50px_rgba(255,255,255,0.02)] relative">
-                <div className="absolute inset-0 border-2 border-white/10 rounded-full animate-ping opacity-20"></div>
-                <svg className="w-12 h-12 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            <div className="h-full flex flex-col gap-6">
+              <div className="flex-1 min-h-[300px]">
+                <MapVisualizer rootNode={manager.root} />
               </div>
-              <div className="text-center">
-                <p className="text-lg font-black uppercase tracking-widest text-white/50 mb-2">Select a Department</p>
-                <p className="text-xs font-mono">Click a node in the hierarchy tree to begin coordination</p>
+              <div className="flex-1 min-h-[300px]">
+                <TreeVisualizer 
+                  rootNode={manager.root} 
+                  selectedDeptId={null} 
+                  onNodeClick={(node: any) => setSelectedNode(node)} 
+                />
               </div>
             </div>
           )}

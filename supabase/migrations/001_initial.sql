@@ -37,7 +37,7 @@ create table if not exists public.reports (
   type          text not null,
   description   text not null,
   priority      int  not null check (priority between 1 and 5),
-  status        text not null default 'Pending' check (status in ('Pending','Ongoing','Resolved')),
+  status        text not null default 'pending' check (status in ('pending','ongoing','resolved','escalated')),
   escalated     boolean default false,
   ics_score     int,
   created_at    timestamptz default now(),
