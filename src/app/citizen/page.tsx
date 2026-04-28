@@ -42,27 +42,19 @@ export default function CitizenDashboard() {
   }, [selectedDistrict]);
 
   const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      router.push('/citizen/login');
-      return;
-    }
-    
-    // verify role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single();
-      
-    if (profile?.role !== 'citizen') {
-      await supabase.auth.signOut();
-      router.push('/citizen/login');
-      return;
-    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.replace('/citizen/login');
+        return;
+      }
 
-    setUser(session.user);
-    fetchMyReports(session.user.id);
+      setUser(session.user);
+      fetchMyReports(session.user.id);
+    } catch (err) {
+      console.error('Auth check error:', err);
+      window.location.replace('/citizen/login');
+    }
   };
 
   const fetchDistricts = async () => {

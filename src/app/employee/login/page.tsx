@@ -15,41 +15,20 @@ export default function EmployeeLogin() {
     setError('');
 
     try {
-      // 1. تسجيل الدخول
+      // 1. تسجيل الدخول فقط
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
 
-      if (signInError) throw new Error('Login Error: ' + signInError.message);
-      if (!data?.user) throw new Error('Login failed: No user returned');
+      if (signInError) throw new Error(signInError.message);
+      if (!data?.user) throw new Error('Login failed');
 
-      // 2. التحقق من البروفايل
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .maybeSingle();
-
-      if (!profile) {
-        // محاولة الإنشاء
-        const { error: upsertErr } = await supabase.from('profiles').upsert({
-          id: data.user.id,
-          role: 'employee',
-          full_name: data.user.email?.split('@')[0] || 'Employee',
-        }, { onConflict: 'id' });
-        
-        if (upsertErr) throw new Error('Profile Creation Error: ' + upsertErr.message);
-      } else if (profile.role !== 'employee' && profile.role !== 'admin') {
-        await supabase.auth.signOut();
-        throw new Error('Access Denied: هذا الحساب ليس مسجلاً كموظف أو مسؤول.');
-      }
-
-      // 3. توجيه
+      // 2. التوجيه مباشرة — الداشبورد هو الي يتحقق من الدور
       window.location.replace('/employee');
 
     } catch (err: any) {
-      console.error(err);
+      console.error('Login error:', err);
       setError(err.message || 'An error occurred');
       setLoading(false);
     }

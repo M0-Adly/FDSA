@@ -74,14 +74,22 @@ CREATE POLICY "departments_public_read" ON public.departments FOR SELECT USING (
 
 -- Profiles
 DROP POLICY IF EXISTS "own_profile_select" ON public.profiles;
+DROP POLICY IF EXISTS "admin_see_all_profiles" ON public.profiles;
 DROP POLICY IF EXISTS "own_profile_update" ON public.profiles;
 DROP POLICY IF EXISTS "own_profile_insert" ON public.profiles;
 
--- قراءة: المستخدم يشوف بروفايله + الموظف/الأدمن يشوف الكل
+-- سياسة بسيطة: كل شخص يرى نفسه
 CREATE POLICY "own_profile_select" ON public.profiles
+  FOR SELECT USING (auth.uid() = id);
+
+-- سياسة للمسؤولين: رؤية الجميع
+CREATE POLICY "admin_see_all_profiles" ON public.profiles
   FOR SELECT USING (
-    auth.uid() = id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('employee', 'admin'))
+    EXISTS (
+      SELECT 1 FROM auth.users 
+      WHERE auth.users.id = auth.uid() 
+      AND (auth.users.raw_user_meta_data->>'role' = 'admin' OR auth.users.raw_user_meta_data->>'role' = 'employee')
+    )
   );
 
 -- تعديل: المستخدم يعدل بروفايله فقط
