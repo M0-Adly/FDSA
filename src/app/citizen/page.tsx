@@ -29,6 +29,7 @@ export default function CitizenDashboard() {
   const [tab, setTab] = useState<'reports' | 'submit'>('reports');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [toast, setToast] = useState<string | null>(null);
+  const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
     checkAuth();
@@ -46,6 +47,10 @@ export default function CitizenDashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { window.location.replace('/citizen/login'); return; }
       setUser(session.user);
+      
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      if (profileData) setProfile(profileData);
+
       fetchMyReports(session.user.id);
     } catch {
       window.location.replace('/citizen/login');
@@ -137,9 +142,29 @@ export default function CitizenDashboard() {
       {/* Welcome */}
       <div className="mb-8 animate-fade-in">
         <h1 className="text-3xl font-black">
-          Welcome, <span className="text-indigo-400">{user?.email?.replace('@citizen.eg', '') || 'Citizen'}</span>
+          Welcome, <span className="text-indigo-400">{profile?.full_name || user?.email?.replace('@citizen.eg', '') || 'Citizen'}</span>
         </h1>
         <p className="text-white/30 text-sm mt-1">Submit emergency reports and track their status in real time.</p>
+        
+        {profile?.account_status === 'pending' && (
+          <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3">
+            <span className="text-amber-400 text-xl">⏳</span>
+            <div>
+              <h3 className="font-bold text-amber-400">Account Pending Approval</h3>
+              <p className="text-sm text-amber-200/70 mt-1">Your account is currently under review by an administrator. You cannot submit new reports until your account is approved.</p>
+            </div>
+          </div>
+        )}
+        
+        {profile?.account_status === 'rejected' && (
+          <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3">
+            <span className="text-red-400 text-xl">❌</span>
+            <div>
+              <h3 className="font-bold text-red-400">Account Rejected</h3>
+              <p className="text-sm text-red-200/70 mt-1">Your account application was declined. Please contact support.</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stat Cards */}
@@ -161,10 +186,12 @@ export default function CitizenDashboard() {
       <div className="flex gap-1 p-1 bg-white/5 rounded-2xl border border-white/10 mb-6 w-fit">
         {[
           { key: 'reports' as const, label: 'My Reports', icon: '📄' },
-          { key: 'submit' as const, label: 'New Report', icon: '📝' },
-        ].map(({ key, label, icon }) => (
-          <button key={key} onClick={() => setTab(key)}
+          { key: 'submit' as const, label: 'New Report', icon: '📝', disabled: profile?.account_status !== 'approved' },
+        ].map(({ key, label, icon, disabled }) => (
+          <button key={key} onClick={() => !disabled && setTab(key)}
+            disabled={disabled}
             className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              disabled ? 'opacity-50 cursor-not-allowed text-white/20' : 
               tab === key ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'
             }`}>
             <span>{icon}</span>{label}

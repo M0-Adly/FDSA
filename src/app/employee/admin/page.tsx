@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function AdminPanel() {
   const [empId, setEmpId] = useState('');
@@ -9,8 +10,22 @@ export default function AdminPanel() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState({ type: '', text: '' });
-  
+  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const router = useRouter();
+
+  useEffect(() => {
+    fetchPendingUsers();
+  }, []);
+
+  const fetchPendingUsers = async () => {
+    const { data } = await supabase.from('profiles').select('*').eq('account_status', 'pending');
+    if (data) setPendingUsers(data);
+  };
+
+  const handleApproval = async (id: string, status: 'approved' | 'rejected') => {
+    await supabase.from('profiles').update({ account_status: status }).eq('id', id);
+    fetchPendingUsers();
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,6 +143,35 @@ export default function AdminPanel() {
                 )}
               </button>
             </form>
+          </div>
+        </div>
+
+        {/* Pending Citizens Section */}
+        <div className="mt-8 bg-white/5 border border-white/10 backdrop-blur-xl rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+          <div className="relative z-10">
+            <h2 className="text-lg font-black text-white/90 mb-6 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              Pending Citizen Approvals ({pendingUsers.length})
+            </h2>
+
+            {pendingUsers.length === 0 ? (
+              <p className="text-sm text-white/40 text-center py-4">No pending accounts to approve.</p>
+            ) : (
+              <div className="space-y-4">
+                {pendingUsers.map(user => (
+                  <div key={user.id} className="p-4 bg-black/20 border border-white/5 rounded-xl flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-white text-sm">{user.full_name || 'Citizen'}</h3>
+                      <p className="text-xs text-white/40">{user.phone}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleApproval(user.id, 'approved')} className="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-500/30">Approve</button>
+                      <button onClick={() => handleApproval(user.id, 'rejected')} className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/30">Reject</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -105,7 +105,8 @@ BEGIN
     VALUES (gen_random_uuid(), admin_uid, admin_uid::text, format('{"sub":"%s","email":"%s"}', admin_uid::text, 'admin@gov.eg')::jsonb, 'email', now(), now(), now());
 
     INSERT INTO public.profiles (id, role, full_name, created_at)
-    VALUES (admin_uid, 'admin', 'System Admin', now());
+    VALUES (admin_uid, 'admin', 'System Admin', now())
+    ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, full_name = EXCLUDED.full_name;
   END IF;
 
   -- Insert Citizen
@@ -117,6 +118,7 @@ BEGIN
     VALUES (gen_random_uuid(), citizen_uid, citizen_uid::text, format('{"sub":"%s","email":"%s"}', citizen_uid::text, '0123456789@citizen.eg')::jsonb, 'email', now(), now(), now());
 
     INSERT INTO public.profiles (id, role, full_name, phone, created_at)
-    VALUES (citizen_uid, 'citizen', 'Test Citizen', '0123456789', now());
+    VALUES (citizen_uid, 'citizen', 'Test Citizen', '0123456789', now())
+    ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, full_name = EXCLUDED.full_name, phone = EXCLUDED.phone;
   END IF;
 END $$;
