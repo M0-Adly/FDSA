@@ -202,14 +202,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     
     // Update document direction
     document.dir = saved === 'ar' ? 'rtl' : 'ltr';
-    document.lang = saved || 'en';
+    document.documentElement.lang = saved || 'en';
   }, []);
 
   const handleSetLanguage = (lang: Language) => {
     setLanguage(lang);
     localStorage.setItem('lang', lang);
     document.dir = lang === 'ar' ? 'rtl' : 'ltr';
-    document.lang = lang;
+    document.documentElement.lang = lang;
   };
 
   const t = (key: string) => {
