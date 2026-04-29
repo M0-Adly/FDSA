@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { useLanguage } from '@/components/LanguageContext';
 
 export default function AdminRecords() {
+  const { t, language } = useLanguage();
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({
@@ -54,39 +56,39 @@ export default function AdminRecords() {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-black tracking-tight">System Records Log</h1>
-            <p className="text-white/40 text-sm mt-1">Comprehensive archive of all crisis reports and resolutions.</p>
+            <h1 className="text-3xl font-black tracking-tight">{t('system_records')}</h1>
+            <p className="text-white/40 text-sm mt-1">{language === 'ar' ? 'أرشيف شامل لجميع بلاغات الأزمات وقرارات الحل.' : 'Comprehensive archive of all crisis reports and resolutions.'}</p>
           </div>
           <button onClick={() => window.location.replace('/employee/admin')} className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold hover:bg-white/10 transition">
-            ← Back to Admin
+            {language === 'ar' ? '← العودة للإدارة' : '← Back to Admin'}
           </button>
         </div>
 
         {/* Filters */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-            <label className="block text-[10px] font-black text-white/30 uppercase mb-2">Time Period</label>
+            <label className="block text-[10px] font-black text-white/30 uppercase mb-2">{language === 'ar' ? 'الفترة الزمنية' : 'Time Period'}</label>
             <select value={filter.time} onChange={e => setFilter({...filter, time: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500">
-              <option value="all">All Time</option>
-              <option value="day">Last 24 Hours</option>
-              <option value="week">Last 7 Days</option>
-              <option value="month">Last 30 Days</option>
+              <option value="all">{language === 'ar' ? 'كل الأوقات' : 'All Time'}</option>
+              <option value="day">{language === 'ar' ? 'آخر ٢٤ ساعة' : 'Last 24 Hours'}</option>
+              <option value="week">{language === 'ar' ? 'آخر ٧ أيام' : 'Last 7 Days'}</option>
+              <option value="month">{language === 'ar' ? 'آخر ٣٠ يوماً' : 'Last 30 Days'}</option>
             </select>
           </div>
           <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-            <label className="block text-[10px] font-black text-white/30 uppercase mb-2">Department</label>
+            <label className="block text-[10px] font-black text-white/30 uppercase mb-2">{t('department')}</label>
             <select value={filter.dept} onChange={e => setFilter({...filter, dept: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500">
-              <option value="all">All Departments</option>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.name_en}</option>)}
+              <option value="all">{language === 'ar' ? 'كل الجهات' : 'All Departments'}</option>
+              {departments.map(d => <option key={d.id} value={d.id}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
             </select>
           </div>
           <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-            <label className="block text-[10px] font-black text-white/30 uppercase mb-2">Status</label>
+            <label className="block text-[10px] font-black text-white/30 uppercase mb-2">{t('status')}</label>
             <select value={filter.status} onChange={e => setFilter({...filter, status: e.target.value})} className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500">
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="ongoing">Ongoing</option>
-              <option value="resolved">Resolved</option>
+              <option value="all">{t('all')}</option>
+              <option value="pending">{t('pending')}</option>
+              <option value="ongoing">{t('ongoing')}</option>
+              <option value="resolved">{t('resolved')}</option>
             </select>
           </div>
         </div>
@@ -97,11 +99,11 @@ export default function AdminRecords() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-white/5 text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/10">
-                  <th className="px-6 py-4">Report ID</th>
-                  <th className="px-6 py-4">Type & Details</th>
-                  <th className="px-6 py-4">Dept / District</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Date</th>
+                  <th className="px-6 py-4">{language === 'ar' ? 'معرف البلاغ' : 'Report ID'}</th>
+                  <th className="px-6 py-4">{language === 'ar' ? 'النوع والتفاصيل' : 'Type & Details'}</th>
+                  <th className="px-6 py-4">{language === 'ar' ? 'الجهة / المنطقة' : 'Dept / District'}</th>
+                  <th className="px-6 py-4">{t('status')}</th>
+                  <th className="px-6 py-4">{language === 'ar' ? 'التاريخ' : 'Date'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -125,7 +127,7 @@ export default function AdminRecords() {
                         r.status === 'resolved' ? (r.citizen_confirmed ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20') :
                         r.status === 'ongoing' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-white/5 text-white/30 border-white/10'
                       }`}>
-                        {r.status === 'resolved' ? (r.citizen_confirmed ? 'Confirmed' : 'Awaiting Citizen') : r.status}
+                        {r.status === 'resolved' ? (r.citizen_confirmed ? (language === 'ar' ? 'تم الحل نهائياً' : 'Confirmed') : (language === 'ar' ? 'بانتظار المواطن' : 'Awaiting Citizen')) : t(r.status)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-xs text-white/40">
