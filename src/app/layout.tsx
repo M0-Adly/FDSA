@@ -4,6 +4,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "National Crisis Management System",
   description: "Government-grade emergency response platform for citizens and officials.",
+  manifest: "/manifest.json",
+  icons: { apple: "/icon.png" },
 };
 
 import { LanguageProvider } from "@/components/LanguageContext";
