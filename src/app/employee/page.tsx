@@ -10,6 +10,7 @@ import { DepartmentNode } from '@/lib/structures/DepartmentTree';
 import { TreeVisualizer } from '@/components/TreeVisualizer';
 import { MapVisualizer } from '@/components/MapVisualizer';
 import { useLanguage } from '@/components/LanguageContext';
+
 export default function EmployeeDashboard() {
   const { t, language } = useLanguage();
   const [manager] = useState(() => new CrisisManager());
@@ -17,6 +18,8 @@ export default function EmployeeDashboard() {
   const [selectedNode, setSelectedNode] = useState<DepartmentNode | null>(null);
   const [user, setUser] = useState<any>(null);
   const [simStep, setSimStep] = useState(0);
+  const [showBackupModal, setShowBackupModal] = useState<string | null>(null);
+  const [backupDepts, setBackupDepts] = useState<number[]>([]);
   
   useEffect(() => { init(); }, []);
 
@@ -83,6 +86,14 @@ export default function EmployeeDashboard() {
       await manager.transferPending(reportId, targetDept.id, user.id);
       refreshState();
     }
+  };
+
+  const handleAddBackup = async (reportId: string) => {
+    if (!user || backupDepts.length === 0) return;
+    await manager.assignBackup(reportId, backupDepts, user.id);
+    setShowBackupModal(null);
+    setBackupDepts([]);
+    refreshState();
   };
 
   const getPriorityColor = (p: number) => {
@@ -233,12 +244,20 @@ export default function EmployeeDashboard() {
                               <h4 className="font-black text-lg text-white/90">{report.type}</h4>
                               <p className="text-[10px] text-white/30 font-mono mt-0.5">ID: {report.id.substring(0,8)}</p>
                             </div>
-                            <button 
-                              onClick={() => handleResolve(report.id)}
-                              className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl hover:bg-emerald-500 hover:text-white transition-all text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-500/10"
-                            >
-                              {t('resolve')}
-                            </button>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => setShowBackupModal(report.id)}
+                                className="px-4 py-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-xl hover:bg-indigo-500 hover:text-white transition-all text-xs font-black uppercase tracking-wider"
+                              >
+                                {t('add_support')}
+                              </button>
+                              <button 
+                                onClick={() => handleResolve(report.id)}
+                                className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl hover:bg-emerald-500 hover:text-white transition-all text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-500/10"
+                              >
+                                {t('resolve')}
+                              </button>
+                            </div>
                           </div>
                           <p className="text-sm text-white/60 mb-5 leading-relaxed">{report.description}</p>
                           <div className="flex items-center gap-3 pt-4 border-t border-white/5">
@@ -330,6 +349,49 @@ export default function EmployeeDashboard() {
           )}
         </div>
       </div>
+
+      {/* Backup Modal */}
+      {showBackupModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#0f172a] border border-white/10 rounded-3xl w-full max-w-md p-6 shadow-2xl shadow-indigo-500/20 animate-scale-up">
+            <h3 className="text-xl font-black text-white mb-2">{t('add_support')}</h3>
+            <p className="text-white/40 text-sm mb-6">{language === 'ar' ? 'اختر الهيئات المطلوب إشراكها في حل هذه الأزمة.' : 'Select departments to involve in this crisis response.'}</p>
+            
+            <div className="grid grid-cols-2 gap-2 mb-8 max-h-60 overflow-y-auto pr-2">
+              {selectedNode && manager.root.children.toArray()
+                .find(d => d.district_id === selectedNode.district_id)?.children.toArray()
+                .filter(d => d.id !== selectedNode.id)
+                .map(dept => (
+                  <label key={dept.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    backupDepts.includes(dept.id) ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      checked={backupDepts.includes(dept.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) setBackupDepts([...backupDepts, dept.id]);
+                        else setBackupDepts(backupDepts.filter(id => id !== dept.id));
+                      }}
+                      className="hidden" 
+                    />
+                    <span className="text-xs font-bold uppercase tracking-wider">{language === 'ar' ? dept.name_ar : dept.name_en}</span>
+                  </label>
+                ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => { setShowBackupModal(null); setBackupDepts([]); }} className="flex-1 py-3 bg-white/5 text-white/40 rounded-xl font-bold hover:bg-white/10 transition uppercase text-xs tracking-widest">{t('cancel')}</button>
+              <button 
+                onClick={() => handleAddBackup(showBackupModal)}
+                disabled={backupDepts.length === 0}
+                className="flex-2 py-3 bg-indigo-600 text-white rounded-xl font-black hover:bg-indigo-500 transition disabled:opacity-50 uppercase text-xs tracking-widest px-8"
+              >
+                {t('confirm_dispatch')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

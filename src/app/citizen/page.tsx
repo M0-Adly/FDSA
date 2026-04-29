@@ -24,7 +24,7 @@ export default function CitizenDashboard() {
   const [districts, setDistricts] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [selectedDistrict, setSelectedDistrict] = useState('');
-  const [selectedDept, setSelectedDept] = useState('');
+  const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState(3);
   const [loading, setLoading] = useState(true);
@@ -80,35 +80,29 @@ export default function CitizenDashboard() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedDept || !user) return;
+    if (selectedDepts.length === 0 || !user) return;
     setSubmitting(true);
     
-    const dept = departments.find(d => d.id.toString() === selectedDept);
-    let type = 'Other';
-    if (dept) {
-      if (dept.name_en.includes('Fire')) type = 'Fire';
-      else if (dept.name_en.includes('Police')) type = 'Theft';
-      else if (dept.name_en.includes('Ambulance')) type = 'Accident';
-      else if (dept.name_en.includes('Water')) type = 'Water Leak';
-      else if (dept.name_en.includes('Electricity')) type = 'Power Outage';
-      else if (dept.name_en.includes('Gas')) type = 'Gas Leak';
-    }
-
-    const { error } = await supabase.from('reports').insert({
-      department_id: parseInt(selectedDept), district_id: parseInt(selectedDistrict),
-      description, priority, type, created_by: user.id
-    });
-
-    setSubmitting(false);
-    if (!error) {
-      setDescription(''); setPriority(3); setSelectedDept('');
-      fetchMyReports(user.id);
-      setToast('Report submitted successfully!');
-      setTimeout(() => setToast(null), 3000);
+    try {
+      const mgr = new CrisisManager();
+      await mgr.initialize();
+      const deptIds = selectedDepts.map(id => parseInt(id));
+      await mgr.fileReport(deptIds, {
+        description,
+        priority: parseInt(priority.toString())
+      }, user.id);
+      
+      setToast(t('success_submit'));
       setTab('reports');
-    } else {
-      setToast('Error: ' + error.message);
-      setTimeout(() => setToast(null), 4000);
+      setDescription('');
+      setPriority(3);
+      setSelectedDepts([]);
+      fetchMyReports(user.id);
+    } catch (err: any) {
+      setToast('Error: ' + err.message);
+    } finally {
+      setSubmitting(false);
+      setTimeout(() => setToast(null), 3000);
     }
   };
 
@@ -317,7 +311,6 @@ export default function CitizenDashboard() {
           </div>
         )}
 
-        {/* Submit Tab */}
         {tab === 'submit' && (
           <div className="max-w-lg">
             <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
@@ -328,7 +321,7 @@ export default function CitizenDashboard() {
                 <div>
                   <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">{t('district')}</label>
                   <select required value={selectedDistrict}
-                    onChange={e => { setSelectedDistrict(e.target.value); setSelectedDept(''); }}
+                    onChange={e => { setSelectedDistrict(e.target.value); setSelectedDepts([]); }}
                     className="input-premium appearance-none cursor-pointer">
                     <option value="" className="bg-slate-900">{t('select_district')}</option>
                     {districts.map(d => (
@@ -339,15 +332,40 @@ export default function CitizenDashboard() {
 
                 {selectedDistrict && (
                   <div>
-                    <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">{t('department')}</label>
-                    <select required value={selectedDept}
-                      onChange={e => setSelectedDept(e.target.value)}
-                      className="input-premium appearance-none cursor-pointer">
-                      <option value="" className="bg-slate-900">{t('select_dept')}</option>
-                      {departments.map(d => (
-                        <option key={d.id} value={d.id} className="bg-slate-900">{language === 'ar' ? d.name_ar : d.name_en}</option>
-                      ))}
-                    </select>
+                    <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-3">{t('department')}</label>
+                    <div className="grid grid-cols-2 gap-2 bg-black/20 p-4 rounded-xl border border-white/5 max-h-48 overflow-y-auto">
+                      {departments.map(d => {
+                        const isSelected = selectedDepts.includes(d.id.toString());
+                        const isPolice = d.name_en.includes('Police');
+                        const needsPolice = selectedDepts.some(id => {
+                          const dept = departments.find(dep => dep.id.toString() === id);
+                          return dept && (dept.name_en.includes('Fire') || dept.name_en.includes('Ambulance'));
+                        });
+
+                        return (
+                          <label key={d.id} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
+                            isSelected ? 'bg-indigo-600/20 border-indigo-500/30' : 'hover:bg-white/5 border-transparent'
+                          } ${(isPolice && needsPolice) ? 'opacity-70 pointer-events-none' : ''}`}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected || (isPolice && needsPolice)}
+                              disabled={isPolice && needsPolice}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedDepts([...selectedDepts, d.id.toString()]);
+                                } else {
+                                  setSelectedDepts(selectedDepts.filter(id => id !== d.id.toString()));
+                                }
+                              }}
+                              className="w-4 h-4 rounded border-white/20 bg-white/5 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className={`text-xs font-bold ${isSelected || (isPolice && needsPolice) ? 'text-indigo-400' : 'text-white/40'}`}>
+                              {language === 'ar' ? d.name_ar : d.name_en}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
@@ -378,7 +396,7 @@ export default function CitizenDashboard() {
                   </div>
                 </div>
 
-                <button type="submit" disabled={submitting || !selectedDept}
+                <button type="submit" disabled={submitting || selectedDepts.length === 0}
                   className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-black rounded-xl transition-all shadow-lg shadow-indigo-500/30 disabled:opacity-50 mt-2">
                   {submitting ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />

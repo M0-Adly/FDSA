@@ -58,6 +58,9 @@ const translations: Record<Language, Record<string, string>> = {
     transfer: "Transfer",
     escalate: "Escalate",
     global_escalation: "Global Escalation",
+    cancel: "Cancel",
+    add_support: "Add Support",
+    confirm_dispatch: "Confirm Dispatch",
     
     // Form Fields
     district: "District",
@@ -147,6 +150,9 @@ const translations: Record<Language, Record<string, string>> = {
     transfer: "تحويل البلاغ",
     escalate: "تصعيد",
     global_escalation: "تصعيد شامل للمنظومة",
+    cancel: "إلغاء",
+    add_support: "إضافة جهة دعم",
+    confirm_dispatch: "تأكيد التكليف",
     
     // Form Fields
     district: "الحي / المنطقة",

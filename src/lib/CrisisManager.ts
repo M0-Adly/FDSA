@@ -41,19 +41,26 @@ export class CrisisManager {
       });
     });
 
-    // 3. Fetch Reports and Populate
+    // 3. Fetch Reports and Assignments
     const { data: reports } = await supabase.from('reports').select('*').neq('status', 'resolved');
+    const { data: assignments } = await supabase.from('report_assignments').select('*');
+    
     if (reports) {
       reports.forEach(r => {
-        const node = this.root.findNode(r.department_id);
-        if (node) {
-          const report: Report = { ...r, timestamp: 0 }; // We'll set timestamp properly from db if needed
-          if (r.status === 'ongoing') {
-            node.ongoingReports.insertLast(report);
-          } else {
-            node.pendingReports.insertSortedByPriority(report, item => item.priority);
+        // Find all departments assigned to this report
+        const assignedDepts = assignments?.filter(a => a.report_id === r.id).map(a => a.department_id) || [r.department_id];
+        
+        assignedDepts.forEach(deptId => {
+          const node = this.root.findNode(deptId);
+          if (node) {
+            const report: Report = { ...r, timestamp: 0 };
+            if (r.status === 'ongoing') {
+              node.ongoingReports.insertLast(report);
+            } else {
+              node.pendingReports.insertSortedByPriority(report, item => item.priority);
+            }
           }
-        }
+        });
       });
     }
 
@@ -62,15 +69,31 @@ export class CrisisManager {
     this.simStep = count || 0;
   }
 
-  async fileReport(deptId: number, data: Partial<Report>, userId: string) {
-    const node = this.root.findNode(deptId);
+  async fileReport(deptIds: number[], data: Partial<Report>, userId: string) {
+    if (deptIds.length === 0) return;
+    
+    // Primary department is the first one selected
+    const primaryDeptId = deptIds[0];
+    const node = this.root.findNode(primaryDeptId);
     if (!node) return;
+
+    // Apply Mandatory Rules: Fire/Ambulance -> Police
+    const allDepartments = this.getAllDepartmentNodes();
+    const finalDeptIds = new Set(deptIds);
+    
+    deptIds.forEach(id => {
+      const dNode = this.root.findNode(id);
+      if (dNode && (dNode.name_en.includes('Fire') || dNode.name_en.includes('Ambulance'))) {
+        const policeInDistrict = allDepartments.find(d => d.district_id === dNode.district_id && d.name_en.includes('Police'));
+        if (policeInDistrict) finalDeptIds.add(policeInDistrict.id);
+      }
+    });
 
     this.simStep++;
     const type = this.autoDetectType(node.name_en);
     
     const { data: newReport, error } = await supabase.from('reports').insert({
-      department_id: deptId,
+      department_id: primaryDeptId,
       district_id: node.district_id,
       type: type,
       description: data.description,
@@ -81,15 +104,24 @@ export class CrisisManager {
 
     if (error) throw error;
 
+    // Create assignments for all departments
+    const assignmentPayload = Array.from(finalDeptIds).map(id => ({
+      report_id: newReport.id,
+      department_id: id
+    }));
+    await supabase.from('report_assignments').insert(assignmentPayload);
+
     const report: Report = { ...newReport, timestamp: this.simStep };
     
-    if (report.status === 'ongoing') {
-      node.ongoingReports.insertLast(report);
-    } else {
-      node.pendingReports.insertSortedByPriority(report, r => r.priority);
-    }
+    finalDeptIds.forEach(id => {
+      const targetNode = this.root.findNode(id);
+      if (targetNode) {
+        if (report.status === 'ongoing') targetNode.ongoingReports.insertLast(report);
+        else targetNode.pendingReports.insertSortedByPriority(report, r => r.priority);
+      }
+    });
 
-    this.undoStack.push({ type: 'FILE', reportId: report.id, toDeptId: deptId });
+    this.undoStack.push({ type: 'FILE', reportId: report.id, toDeptId: primaryDeptId });
     await this.logAction(report.id, 'FILE', userId);
     return report;
   }
@@ -120,8 +152,12 @@ export class CrisisManager {
       resolved_at: new Date().toISOString() 
     }).eq('id', reportId);
 
-    // Update Memory
-    foundNode.ongoingReports.removeValue(r => r.id === reportId);
+    // Update Memory: Remove from ALL nodes that might have this report
+    const allNodes = this.getAllDepartmentNodes();
+    allNodes.forEach(node => {
+      node.ongoingReports.removeValue(r => r.id === reportId);
+    });
+
     foundReport.status = 'resolved';
     foundNode.resolvedArchive.push(foundReport);
 
@@ -169,6 +205,30 @@ export class CrisisManager {
     
     if (error) throw error;
     await this.logAction(reportId, 'REOPEN', userId);
+  }
+
+  async assignBackup(reportId: string, deptIds: number[], userId: string) {
+    const { data: report } = await supabase.from('reports').select('*').eq('id', reportId).single();
+    if (!report) return;
+
+    const assignmentPayload = deptIds.map(id => ({
+      report_id: reportId,
+      department_id: id
+    }));
+
+    await supabase.from('report_assignments').insert(assignmentPayload);
+
+    // Update Memory
+    deptIds.forEach(id => {
+      const node = this.root.findNode(id);
+      if (node) {
+        const reportObj: Report = { ...report, timestamp: this.simStep };
+        if (report.status === 'ongoing') node.ongoingReports.insertLast(reportObj);
+        else node.pendingReports.insertSortedByPriority(reportObj, r => r.priority);
+      }
+    });
+
+    await this.logAction(reportId, 'BACKUP', userId);
   }
 
   async startResponse(reportId: string, userId: string) {
