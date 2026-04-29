@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { CrisisManager } from '@/lib/CrisisManager';
 
 interface Report {
   id: string;
@@ -13,6 +14,7 @@ interface Report {
   status: string;
   created_at: string;
   department_id: number;
+  citizen_confirmed?: boolean;
 }
 
 export default function CitizenDashboard() {

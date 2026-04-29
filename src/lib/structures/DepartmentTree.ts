@@ -10,6 +10,7 @@ export interface Report {
   department_id: number;
   district_id: number;
   timestamp: number; // simStep when filed
+  citizen_confirmed?: boolean;
 }
 
 export class DepartmentNode {
