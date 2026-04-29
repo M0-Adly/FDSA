@@ -157,6 +157,20 @@ export class CrisisManager {
     await this.logAction(reportId, 'CONFIRM', userId);
   }
 
+  async reopenReport(reportId: string, userId: string) {
+    const { error } = await supabase.from('reports')
+      .update({ 
+        status: 'ongoing', 
+        citizen_confirmed: false,
+        resolved_at: null 
+      })
+      .eq('id', reportId)
+      .eq('created_by', userId);
+    
+    if (error) throw error;
+    await this.logAction(reportId, 'REOPEN', userId);
+  }
+
   async startResponse(reportId: string, userId: string) {
     let foundNode: DepartmentNode | null = null;
     let foundReport: Report | null = null;

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/components/LanguageContext';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export default function EmployeeLayout({
   children,
@@ -11,6 +13,7 @@ export default function EmployeeLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { t } = useLanguage();
   const isAuth = pathname === '/employee/login';
   const isAdmin = pathname === '/employee/admin';
   const [user, setUser] = useState<any>(null);
@@ -47,33 +50,35 @@ export default function EmployeeLayout({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-black text-lg tracking-tight text-white">CrisisCommand</span>
+              <span className="font-black text-lg tracking-tight text-white">{t('portal_name')}</span>
               <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/20">v2.0</span>
             </div>
-            <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">Government Secure Portal</p>
+            <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">{t('secure_portal')}</p>
           </div>
         </div>
         
         <div className="flex items-center gap-6">
+          <LanguageSwitcher />
+          <div className="w-px h-5 bg-white/10" />
           <Link href="/employee" className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${!isAdmin ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}>
-            Command Center
+            {t('command_center')}
           </Link>
           <Link href="/employee/admin" className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${isAdmin ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}>
-            Admin Panel
+            {t('admin_panel')}
           </Link>
           
           <div className="w-px h-5 bg-white/10" />
 
           <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/10 shadow-inner">
             <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-            <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">System Live</span>
+            <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">{t('system_live')}</span>
           </div>
 
           <div className="w-px h-5 bg-white/10" />
 
           <button onClick={handleLogout} className="flex items-center gap-1.5 text-xs text-white/40 hover:text-red-400 transition-colors group">
             <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            <span className="font-bold">Logout</span>
+            <span className="font-bold">{t('logout')}</span>
           </button>
         </div>
       </header>

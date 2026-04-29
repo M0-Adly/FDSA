@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CrisisManager } from '@/lib/CrisisManager';
+import { useLanguage } from '@/components/LanguageContext';
 
 interface Report {
   id: string;
@@ -18,6 +19,7 @@ interface Report {
 }
 
 export default function CitizenDashboard() {
+  const { t, language } = useLanguage();
   const [reports, setReports] = useState<Report[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
@@ -148,16 +150,16 @@ export default function CitizenDashboard() {
       {/* Welcome */}
       <div className="mb-8 animate-fade-in">
         <h1 className="text-3xl font-black">
-          Welcome, <span className="text-indigo-400">{profile?.full_name || user?.email?.replace('@citizen.eg', '') || 'Citizen'}</span>
+          {t('welcome')}, <span className="text-indigo-400">{profile?.full_name || user?.email?.replace('@citizen.eg', '') || 'Citizen'}</span>
         </h1>
-        <p className="text-white/30 text-sm mt-1">Submit emergency reports and track their status in real time.</p>
+        <p className="text-white/30 text-sm mt-1">{t('citizen_access')}.</p>
         
         {profile?.account_status === 'pending' && (
           <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3">
             <span className="text-amber-400 text-xl">⏳</span>
             <div>
-              <h3 className="font-bold text-amber-400">Account Pending Approval</h3>
-              <p className="text-sm text-amber-200/70 mt-1">Your account is currently under review by an administrator. You cannot submit new reports until your account is approved.</p>
+              <h3 className="font-bold text-amber-400">{t('pending_approval')}</h3>
+              <p className="text-sm text-amber-200/70 mt-1">{language === 'ar' ? 'حسابك حالياً تحت المراجعة من قبل الإدارة. لا يمكنك إرسال بلاغات جديدة حتى يتم تفعيل الحساب.' : 'Your account is currently under review. You cannot submit new reports until approved.'}</p>
             </div>
           </div>
         )}
@@ -176,9 +178,9 @@ export default function CitizenDashboard() {
       {/* Stat Cards */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         {[
-          { label: 'Total Reports', value: reports.length, color: 'indigo', icon: '📋' },
-          { label: 'Ongoing', value: reports.filter(r => r.status === 'ongoing').length, color: 'blue', icon: '🔵' },
-          { label: 'Resolved', value: reports.filter(r => r.status === 'resolved').length, color: 'emerald', icon: '✅' },
+          { label: t('total_reports'), value: reports.length, color: 'indigo', icon: '📋' },
+          { label: t('ongoing'), value: reports.filter(r => r.status === 'ongoing').length, color: 'blue', icon: '🔵' },
+          { label: t('resolved'), value: reports.filter(r => r.status === 'resolved').length, color: 'emerald', icon: '✅' },
         ].map(({ label, value, color, icon }) => (
           <div key={label} className={`bg-${color}-500/10 border border-${color}-500/20 rounded-2xl p-5 text-center backdrop-blur-sm transition hover:bg-${color}-500/15`}>
             <span className="text-2xl">{icon}</span>
@@ -191,8 +193,8 @@ export default function CitizenDashboard() {
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-white/5 rounded-2xl border border-white/10 mb-6 w-fit">
         {[
-          { key: 'reports' as const, label: 'My Reports', icon: '📄' },
-          { key: 'submit' as const, label: 'New Report', icon: '📝', disabled: profile?.account_status !== 'approved' },
+          { key: 'reports' as const, label: t('my_reports'), icon: '📄' },
+          { key: 'submit' as const, label: t('new_report'), icon: '📝', disabled: profile?.account_status !== 'approved' },
         ].map(({ key, label, icon, disabled }) => (
           <button key={key} onClick={() => !disabled && setTab(key)}
             disabled={disabled}
@@ -218,7 +220,7 @@ export default function CitizenDashboard() {
                   className={`text-xs px-3.5 py-1.5 rounded-lg font-bold transition-all ${
                     statusFilter === s ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-white/40 hover:text-white/70'
                   }`}>
-                  {s}
+                  {t(s.toLowerCase().replace(/ /g, '_'))}
                 </button>
               ))}
               <button onClick={() => user && fetchMyReports(user.id)} className="ml-auto text-white/30 hover:text-white/60 transition">
@@ -229,10 +231,10 @@ export default function CitizenDashboard() {
             {filteredReports.length === 0 ? (
               <div className="text-center py-16 text-white/20">
                 <span className="text-4xl mb-4 block">📋</span>
-                <p className="font-bold">No reports found</p>
-                <p className="text-sm mt-1">Submit your first emergency report</p>
+                <p className="font-bold">{t('no_reports')}</p>
+                <p className="text-sm mt-1">{t('submit_first')}</p>
                 <button onClick={() => setTab('submit')} className="mt-4 px-4 py-2 bg-indigo-600/30 border border-indigo-500/30 rounded-xl text-indigo-400 text-sm font-bold hover:bg-indigo-600/50 transition">
-                  Submit Report →
+                  {t('submit_report')} →
                 </button>
               </div>
             ) : (
@@ -253,7 +255,7 @@ export default function CitizenDashboard() {
                             report.status === 'resolved' ? (report.citizen_confirmed ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10' : 'text-blue-400 border-blue-500/20 bg-blue-500/10') :
                             report.status === 'ongoing' ? 'text-indigo-400 border-indigo-500/20 bg-indigo-500/10' : 'text-white/30 border-white/10 bg-white/5'
                           }`}>
-                            {report.status === 'resolved' ? (report.citizen_confirmed ? 'Fully Resolved' : 'Resolution Pending Approval') : report.status}
+                            {report.status === 'resolved' ? (report.citizen_confirmed ? t('fully_resolved') : t('resolution_pending')) : t(report.status)}
                           </span>
                           <span className="text-[10px] text-white/20 font-mono">
                             {new Date(report.created_at).toLocaleDateString()}
@@ -262,29 +264,49 @@ export default function CitizenDashboard() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-center gap-2">
                       {report.status === 'resolved' && !report.citizen_confirmed && (
-                        <button 
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              const mgr = new CrisisManager();
-                              await mgr.confirmResolution(report.id, user.id);
-                              setToast('Resolution confirmed! Thank you.');
-                              setTimeout(() => setToast(null), 3000);
-                              fetchMyReports(user.id);
-                            } catch (err: any) {
-                              setToast('Error: ' + (err.message || 'Could not confirm'));
-                              setTimeout(() => setToast(null), 4000);
-                            }
-                          }}
-                          className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20 animate-bounce"
-                        >
-                          Confirm it's Fixed
-                        </button>
+                        <>
+                          <button 
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const mgr = new CrisisManager();
+                                await mgr.confirmResolution(report.id, user.id);
+                                setToast(t('confirmed_msg'));
+                                setTimeout(() => setToast(null), 3000);
+                                fetchMyReports(user.id);
+                              } catch (err: any) {
+                                setToast('Error: ' + (err.message || 'Could not confirm'));
+                                setTimeout(() => setToast(null), 4000);
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20"
+                          >
+                            {t('confirm_fixed')}
+                          </button>
+                          <button 
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const mgr = new CrisisManager();
+                                await mgr.reopenReport(report.id, user.id);
+                                setToast(t('reopened_msg'));
+                                setTimeout(() => setToast(null), 3000);
+                                fetchMyReports(user.id);
+                              } catch (err: any) {
+                                setToast('Error: ' + (err.message || 'Could not reopen'));
+                                setTimeout(() => setToast(null), 4000);
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-xs font-bold hover:bg-red-500 hover:text-white transition shadow-lg"
+                          >
+                            {t('not_fixed')}
+                          </button>
+                        </>
                       )}
                       <div className="text-right px-3">
-                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-tighter">Priority</p>
+                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-tighter">{t('priority')}</p>
                         <p className="font-black text-white/60">P{report.priority}</p>
                       </div>
                     </div>
@@ -300,46 +322,46 @@ export default function CitizenDashboard() {
           <div className="max-w-lg">
             <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
               <h2 className="text-lg font-black mb-5 flex items-center gap-2">
-                <span>📝</span> Submit Emergency Report
+                <span>📝</span> {t('submit_report')}
               </h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">District</label>
+                  <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">{t('district')}</label>
                   <select required value={selectedDistrict}
                     onChange={e => { setSelectedDistrict(e.target.value); setSelectedDept(''); }}
                     className="input-premium appearance-none cursor-pointer">
-                    <option value="" className="bg-slate-900">Select a district...</option>
+                    <option value="" className="bg-slate-900">{t('select_district')}</option>
                     {districts.map(d => (
-                      <option key={d.id} value={d.id} className="bg-slate-900">{d.name_en} - {d.name_ar}</option>
+                      <option key={d.id} value={d.id} className="bg-slate-900">{language === 'ar' ? d.name_ar : d.name_en}</option>
                     ))}
                   </select>
                 </div>
 
                 {selectedDistrict && (
                   <div>
-                    <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Department</label>
+                    <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">{t('department')}</label>
                     <select required value={selectedDept}
                       onChange={e => setSelectedDept(e.target.value)}
                       className="input-premium appearance-none cursor-pointer">
-                      <option value="" className="bg-slate-900">Select department...</option>
+                      <option value="" className="bg-slate-900">{t('select_dept')}</option>
                       {departments.map(d => (
-                        <option key={d.id} value={d.id} className="bg-slate-900">{d.name_en} - {d.name_ar}</option>
+                        <option key={d.id} value={d.id} className="bg-slate-900">{language === 'ar' ? d.name_ar : d.name_en}</option>
                       ))}
                     </select>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Description</label>
+                  <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">{t('description')}</label>
                   <textarea required rows={4} value={description}
                     onChange={e => setDescription(e.target.value)}
-                    placeholder="Describe the emergency in detail..."
+                    placeholder={language === 'ar' ? 'صف حالة الطوارئ بالتفصيل...' : 'Describe the emergency in detail...'}
                     className="input-premium resize-none" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
-                    Priority Level: <span className={`${getPriorityColor(priority)} font-black`}>{priority}</span>
+                    {t('priority_level')}: <span className={`${getPriorityColor(priority)} font-black`}>{priority}</span>
                   </label>
                   <div className="flex items-center gap-4">
                     <input type="range" min="1" max="5" value={priority}
@@ -360,7 +382,7 @@ export default function CitizenDashboard() {
                   className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-black rounded-xl transition-all shadow-lg shadow-indigo-500/30 disabled:opacity-50 mt-2">
                   {submitting ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
-                  ) : 'Submit Report'}
+                  ) : t('submit_report')}
                 </button>
               </form>
             </div>

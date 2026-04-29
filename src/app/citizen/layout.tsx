@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useLanguage } from '@/components/LanguageContext';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export default function CitizenLayout({
   children,
@@ -12,6 +13,7 @@ export default function CitizenLayout({
 }) {
   const pathname = usePathname();
   const isAuth = pathname === '/citizen/login' || pathname === '/citizen/signup';
+  const { t } = useLanguage();
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -50,9 +52,9 @@ export default function CitizenLayout({
             </div>
             <div>
               <Link href="/citizen" className="font-black text-sm hover:text-indigo-400 transition-colors">
-                Crisis Portal
+                {t('portal_name')}
               </Link>
-              <p className="text-[10px] text-white/40">Citizen Access</p>
+              <p className="text-[10px] text-white/40">{t('citizen_access')}</p>
             </div>
           </div>
 
@@ -60,21 +62,22 @@ export default function CitizenLayout({
             <Link href="/citizen" className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
               pathname === '/citizen' ? 'bg-indigo-600/20 text-indigo-400' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
             }`}>
-              Dashboard
+              {t('dashboard')}
             </Link>
             <Link href="/citizen/profile" className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
               pathname === '/citizen/profile' ? 'bg-indigo-600/20 text-indigo-400' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
             }`}>
-              Profile
+              {t('profile')}
             </Link>
             <div className="w-px h-4 bg-white/10" />
-            <span className="text-xs text-white/30 hidden sm:block">{user?.email?.replace('@citizen.eg', '')}</span>
+            <LanguageSwitcher />
+            <div className="w-px h-4 bg-white/10" />
             <button 
               onClick={handleLogout}
               className="flex items-center gap-1.5 text-xs text-white/30 hover:text-red-400 transition px-3 py-1.5 rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20"
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-              Sign Out
+              {t('logout')}
             </button>
           </div>
         </div>
