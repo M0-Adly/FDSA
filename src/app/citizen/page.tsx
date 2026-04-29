@@ -232,24 +232,46 @@ export default function CitizenDashboard() {
             ) : (
               <div className="space-y-3">
                 {filteredReports.map(report => (
-                  <div key={report.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-indigo-500/20 hover:bg-white/[0.07] transition-all group">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex items-center gap-3">
-                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border ${getStatusColor(report.status)}`}>
-                          {report.status}
-                        </span>
-                        <span className="text-xs text-white/20 font-mono">#{report.id.substring(0,8)}</span>
+                  <div key={report.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group hover:bg-white/[0.08] transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
+                        report.status === 'resolved' ? (report.citizen_confirmed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400') : 
+                        report.status === 'ongoing' ? 'bg-indigo-500/20 text-indigo-400 animate-pulse' : 'bg-white/5 text-white/40'
+                      }`}>
+                        {report.status === 'resolved' ? (report.citizen_confirmed ? '✅' : '👍') : '📄'}
                       </div>
-                      <span className="text-xs text-white/20">
-                        {new Date(report.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                      <div>
+                        <h3 className="font-bold text-white/90">{report.type}</h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded border ${
+                            report.status === 'resolved' ? (report.citizen_confirmed ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10' : 'text-blue-400 border-blue-500/20 bg-blue-500/10') :
+                            report.status === 'ongoing' ? 'text-indigo-400 border-indigo-500/20 bg-indigo-500/10' : 'text-white/30 border-white/10 bg-white/5'
+                          }`}>
+                            {report.status === 'resolved' ? (report.citizen_confirmed ? 'Fully Resolved' : 'Resolution Pending Approval') : report.status}
+                          </span>
+                          <span className="text-[10px] text-white/20 font-mono">
+                            {new Date(report.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <h3 className="font-bold text-lg text-white/90 mb-1">{report.type}</h3>
-                    <p className="text-sm text-white/40 mb-4 leading-relaxed">{report.description}</p>
-                    <div className="flex items-center gap-6 pt-3 border-t border-white/5">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] text-white/20 uppercase">Priority</span>
-                        <span className={`text-sm font-black ${getPriorityColor(report.priority)}`}>{report.priority}/5</span>
+
+                    <div className="flex items-center gap-2">
+                      {report.status === 'resolved' && !report.citizen_confirmed && (
+                        <button 
+                          onClick={async () => {
+                            const mgr = new CrisisManager();
+                            await mgr.confirmResolution(report.id, user.id);
+                            fetchMyReports(user.id);
+                          }}
+                          className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20"
+                        >
+                          Confirm it's Fixed
+                        </button>
+                      )}
+                      <div className="text-right px-3">
+                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-tighter">Priority</p>
+                        <p className="font-black text-white/60">P{report.priority}</p>
                       </div>
                     </div>
                   </div>

@@ -66,6 +66,11 @@ export default function AdminPanel() {
             <h1 className="text-3xl font-black text-white tracking-tight">Admin Console</h1>
             <p className="text-white/40 text-sm font-bold uppercase tracking-widest mt-1">Staff Provisioning System</p>
           </div>
+          <button onClick={() => window.location.replace('/employee/admin/records')} 
+            className="ml-auto px-4 py-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-indigo-500 hover:text-white transition-all shadow-lg shadow-indigo-500/10 flex items-center gap-2">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            System Records Log
+          </button>
         </div>
 
         <div className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-3xl p-8 shadow-2xl relative overflow-hidden">
