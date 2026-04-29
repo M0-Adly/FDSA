@@ -126,9 +126,13 @@ export default function CitizenDashboard() {
     return 'text-blue-400';
   };
 
-  const filteredReports = statusFilter === 'All' 
-    ? reports 
-    : reports.filter(r => r.status.toLowerCase() === statusFilter.toLowerCase());
+  const filteredReports = reports.filter(r => {
+    if (statusFilter === 'All') return true;
+    if (statusFilter === 'Active') return r.status === 'pending' || r.status === 'ongoing';
+    if (statusFilter === 'Awaiting Confirmation') return r.status === 'resolved' && !r.citizen_confirmed;
+    if (statusFilter === 'Resolved') return r.status === 'resolved' && r.citizen_confirmed;
+    return r.status.toLowerCase() === statusFilter.toLowerCase();
+  });
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
@@ -209,7 +213,7 @@ export default function CitizenDashboard() {
             {/* Status Filter */}
             <div className="flex items-center gap-2 flex-wrap">
               <svg className="w-4 h-4 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-              {(['All', 'Pending', 'Ongoing', 'Resolved'] as const).map(s => (
+              {(['All', 'Active', 'Awaiting Confirmation', 'Resolved'] as const).map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)}
                   className={`text-xs px-3.5 py-1.5 rounded-lg font-bold transition-all ${
                     statusFilter === s ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-white/40 hover:text-white/70'
@@ -261,12 +265,20 @@ export default function CitizenDashboard() {
                     <div className="flex items-center gap-2">
                       {report.status === 'resolved' && !report.citizen_confirmed && (
                         <button 
-                          onClick={async () => {
-                            const mgr = new CrisisManager();
-                            await mgr.confirmResolution(report.id, user.id);
-                            fetchMyReports(user.id);
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const mgr = new CrisisManager();
+                              await mgr.confirmResolution(report.id, user.id);
+                              setToast('Resolution confirmed! Thank you.');
+                              setTimeout(() => setToast(null), 3000);
+                              fetchMyReports(user.id);
+                            } catch (err: any) {
+                              setToast('Error: ' + (err.message || 'Could not confirm'));
+                              setTimeout(() => setToast(null), 4000);
+                            }
                           }}
-                          className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20"
+                          className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20 animate-bounce"
                         >
                           Confirm it's Fixed
                         </button>
