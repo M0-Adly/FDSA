@@ -131,18 +131,33 @@ export default function CitizenDashboard() {
         let lng = undefined;
 
         if (includeGps) {
-          showToast(language === 'ar' ? 'جاري تحديد موقعك الجغرافي...' : 'Getting location...');
+          showToast(language === 'ar' ? 'جاري تحديد موقعك الجغرافي (يرجى الانتظار)...' : 'Getting location (please wait)...');
+          
+          if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+            showToast(language === 'ar' ? 'عذراً، الـ GPS يتطلب رابط آمن (HTTPS) ليعمل.' : 'GPS requires HTTPS to work.');
+            setSubmitting(false);
+            return;
+          }
+
           try {
             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000, enableHighAccuracy: true });
+              navigator.geolocation.getCurrentPosition(resolve, reject, { 
+                timeout: 15000, 
+                enableHighAccuracy: true,
+                maximumAge: 0
+              });
             });
             lat = position.coords.latitude;
             lng = position.coords.longitude;
           } catch (err: any) {
-            console.warn("GPS access denied or timed out", err);
-            showToast(language === 'ar' ? 'فشل تحديد الموقع. تأكد من تفعيل الـ GPS بالمتصفح!' : 'Failed to get GPS location. Enable permissions!');
+            console.error("GPS Error:", err);
+            let msg = language === 'ar' ? 'فشل تحديد الموقع. تأكد من تفعيل الـ GPS والسماح للمتصفح!' : 'Location failed. Enable GPS and permissions!';
+            if (err.code === 1) msg = language === 'ar' ? 'يرجى السماح للمتصفح بالوصول للموقع (Permission Denied)' : 'Please allow location access.';
+            if (err.code === 3) msg = language === 'ar' ? 'انتهت المهلة. حاول مرة أخرى في مكان مكشوف.' : 'Timeout. Try again in an open area.';
+            
+            showToast(msg);
             setSubmitting(false);
-            return; // 🛑 Abort submission if GPS was requested but failed
+            return; 
           }
         }
 
