@@ -17,10 +17,19 @@ export default function EmployeeDashboard() {
   const [initialized, setInitialized] = useState(false);
   const [selectedNode, setSelectedNode] = useState<DepartmentNode | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [simStep, setSimStep] = useState(0);
   const [showBackupModal, setShowBackupModal] = useState<string | null>(null);
   const [backupDepts, setBackupDepts] = useState<number[]>([]);
   
+  // Profile completion states
+  const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
+  const [compName, setCompName] = useState('');
+  const [compPhone, setCompPhone] = useState('');
+  const [compNID, setCompNID] = useState('');
+  const [compFile, setCompFile] = useState<File | null>(null);
+  const [compLoading, setCompLoading] = useState(false);
+
   useEffect(() => { init(); }, []);
 
   const init = async () => {
@@ -29,21 +38,50 @@ export default function EmployeeDashboard() {
       if (!session) { window.location.replace('/employee/login'); return; }
       setUser(session.user);
 
-      try {
-        await supabase.from('profiles').upsert({
-          id: session.user.id, role: 'employee', full_name: session.user.email?.split('@')[0] || 'Employee',
-        }, { onConflict: 'id', ignoreDuplicates: true });
-      } catch {}
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      setProfile(profileData);
 
-      try {
-        await manager.initialize();
-        setSimStep(manager.simStep);
-      } catch (err) { console.warn('Manager init warning:', err); }
+      // Check if profile is incomplete (missing national_id or phone)
+      if (profileData?.role === 'employee' && (!profileData.national_id || !profileData.phone || profileData.full_name.includes('emp'))) {
+        setIsProfileIncomplete(true);
+        setCompName(profileData.full_name || '');
+      }
 
+      await manager.initialize();
+      setSimStep(manager.simStep);
       setInitialized(true);
     } catch (err) {
-      console.error('Dashboard init error:', err);
       window.location.replace('/employee/login');
+    }
+  };
+
+  const handleProfileComplete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCompLoading(true);
+    try {
+      let imageUrl = profile?.national_id_image_url;
+      if (compFile) {
+        const fileExt = compFile.name.split('.').pop();
+        const fileName = `emp_${user.id}_${Date.now()}.${fileExt}`;
+        await supabase.storage.from('national-ids').upload(fileName, compFile);
+        const { data: { publicUrl } } = supabase.storage.from('national-ids').getPublicUrl(fileName);
+        imageUrl = publicUrl;
+      }
+
+      const { error } = await supabase.from('profiles').update({
+        full_name: compName,
+        phone: compPhone,
+        national_id: compNID,
+        national_id_image_url: imageUrl
+      }).eq('id', user.id);
+
+      if (error) throw error;
+      setIsProfileIncomplete(false);
+      init(); // Re-fetch to refresh profile state
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setCompLoading(false);
     }
   };
 
@@ -101,6 +139,31 @@ export default function EmployeeDashboard() {
     if (p === 3) return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
     return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
   };
+
+  if (isProfileIncomplete) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-4 bg-[#080c1a]">
+        <div className="w-full max-w-lg bg-white/5 border border-white/10 rounded-[2.5rem] p-10 backdrop-blur-3xl shadow-2xl">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-black text-white mb-2">{language === 'ar' ? 'إكمال بيانات الملف الشخصي' : 'Complete Your Profile'}</h2>
+            <p className="text-white/30 text-xs uppercase tracking-widest">{language === 'ar' ? 'يرجى إكمال بياناتك للمتابعة إلى لوحة العمل' : 'Please fill your details to access the dashboard'}</p>
+          </div>
+          <form onSubmit={handleProfileComplete} className="space-y-5">
+            <input required value={compName} onChange={e => setCompName(e.target.value)} placeholder={language === 'ar' ? 'الاسم الكامل' : 'Full Name'} className="input-premium" />
+            <input required value={compPhone} onChange={e => setCompPhone(e.target.value)} placeholder={language === 'ar' ? 'رقم الهاتف' : 'Phone Number'} className="input-premium" />
+            <input required value={compNID} onChange={e => setCompNID(e.target.value)} placeholder={language === 'ar' ? 'الرقم القومي (14 رقم)' : 'National ID'} className="input-premium" minLength={14} maxLength={14} />
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-white/30 uppercase ml-2">{language === 'ar' ? 'صورة البطاقة الشخصية' : 'ID Image Upload'}</label>
+              <input type="file" required accept="image/*" onChange={e => setCompFile(e.target.files?.[0] || null)} className="text-xs text-white/40 block" />
+            </div>
+            <button disabled={compLoading} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20">
+              {compLoading ? '...' : (language === 'ar' ? 'حفظ البيانات والدخول' : 'Save & Enter')}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (!initialized) return (
     <div className="flex-1 flex items-center justify-center">
