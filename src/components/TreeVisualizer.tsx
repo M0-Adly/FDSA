@@ -128,7 +128,6 @@ export function TreeVisualizer({ rootNode, selectedDeptId, onNodeClick }: any) {
         fitView
       >
         <Background color="#ffffff" gap={16} size={1} style={{ opacity: 0.05 }} />
-        <Controls className="!bg-white/5 !border-white/10 !fill-white" />
       </ReactFlow>
     </div>
   );
