@@ -106,49 +106,56 @@ export default function CitizenDashboard() {
         account_status: 'pending'
       }).eq('id', user.id);
       if (error) throw error;
-      setToast(language === 'ar' ? 'تم إعادة تقديم البيانات بنجاح' : 'Resubmitted');
+      showToast(language === 'ar' ? 'تم إعادة تقديم البيانات بنجاح' : 'Resubmitted');
       setTab('reports');
       checkAuth();
     } catch (err: any) {
-      setToast(err.message);
+      showToast(err.message);
     } finally { setSubmitting(false); }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedDept || !user) return;
-    setSubmitting(true);
-    try {
-      let lat = undefined;
-      let lng = undefined;
+    const showToast = (msg: string) => {
+      setToast(msg);
+      setTimeout(() => setToast(null), 3000);
+    };
 
-      // Get GPS Location
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!selectedDept || !user) return;
+      setSubmitting(true);
       try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
-        });
-        lat = position.coords.latitude;
-        lng = position.coords.longitude;
-      } catch (err) {
-        console.warn("GPS access denied or timed out");
-      }
+        let lat = undefined;
+        let lng = undefined;
 
-      const mgr = new CrisisManager();
-      await mgr.initialize();
-      await mgr.fileReport(
-        [parseInt(selectedDept)], 
-        { description, priority: parseInt(priority.toString()), lat, lng }, 
-        user.id
-      );
-      
-      setToast(language === 'ar' ? 'تم إرسال البلاغ مع تحديد موقعك بنجاح' : 'Report submitted with GPS location');
-      setTab('reports');
-      setDescription('');
-      fetchMyReports(user.id);
-    } catch (err: any) {
-      setToast(err.message);
-    } finally { setSubmitting(false); }
-  };
+        // Get GPS Location
+        try {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+          });
+          lat = position.coords.latitude;
+          lng = position.coords.longitude;
+        } catch (err) {
+          console.warn("GPS access denied or timed out");
+        }
+
+        const mgr = new CrisisManager();
+        await mgr.initialize();
+        await mgr.fileReport(
+          [parseInt(selectedDept)], 
+          { description, priority: parseInt(priority.toString()), lat, lng }, 
+          user.id
+        );
+        
+        showToast(language === 'ar' ? 'تم إرسال البلاغ مع تحديد موقعك بنجاح' : 'Report submitted with GPS location');
+        setTab('reports');
+        setDescription('');
+        setPriority(3);
+        fetchMyReports(user.id);
+      } catch (err: any) {
+        showToast(err.message);
+      } finally { setSubmitting(false); }
+    };
+
 
   const filteredReports = reports.filter(r => {
     if (statusFilter === 'All') return true;
@@ -253,7 +260,7 @@ export default function CitizenDashboard() {
                           const mgr = new CrisisManager();
                           await mgr.confirmResolution(r.id, user.id);
                           fetchMyReports(user.id);
-                          setToast(language === 'ar' ? 'تم تأكيد حل البلاغ' : 'Confirmed');
+                          showToast(language === 'ar' ? 'تم تأكيد حل البلاغ' : 'Confirmed');
                         }} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase hover:scale-105 transition-all">
                           {language === 'ar' ? 'تأكيد الحل' : 'Confirm Fixed'}
                         </button>
@@ -261,7 +268,7 @@ export default function CitizenDashboard() {
                           const mgr = new CrisisManager();
                           await mgr.reopenReport(r.id, user.id);
                           fetchMyReports(user.id);
-                          setToast(language === 'ar' ? 'تم إعادة فتح البلاغ' : 'Reopened');
+                          showToast(language === 'ar' ? 'تم إعادة فتح البلاغ' : 'Reopened');
                         }} className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-xs font-black uppercase hover:scale-105 transition-all">
                           {language === 'ar' ? 'لم يتم الحل' : 'Not Fixed'}
                         </button>
@@ -279,23 +286,32 @@ export default function CitizenDashboard() {
           <div className="bg-white/5 border border-white/10 rounded-3xl p-8 max-w-xl mx-auto backdrop-blur-xl shadow-2xl">
             <h2 className="text-2xl font-black mb-8 flex items-center gap-3"><span>📝</span> {language === 'ar' ? 'تقديم بلاغ جديد' : 'New Report'}</h2>
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                 <div>
                   <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">{language === 'ar' ? 'المنطقة' : 'District'}</label>
                   <select required value={selectedDistrict} onChange={e => {setSelectedDistrict(e.target.value); setSelectedDept('');}} className="input-premium">
-                    <option value="">{language === 'ar' ? 'اختر المنطقة' : 'Select District'}</option>
-                    {districts.map(d => <option key={d.id} value={d.id}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
+                    <option value="" className="bg-slate-900 text-white">{language === 'ar' ? 'اختر المنطقة' : 'Select District'}</option>
+                    {districts.map(d => <option key={d.id} value={d.id} className="bg-slate-900 text-white">{language === 'ar' ? d.name_ar : d.name_en}</option>)}
                   </select>
                 </div>
                 {selectedDistrict && (
                   <div>
                     <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">{language === 'ar' ? 'الجهة المختصة' : 'Department'}</label>
                     <select required value={selectedDept} onChange={e => setSelectedDept(e.target.value)} className="input-premium">
-                      <option value="">{language === 'ar' ? 'اختر الجهة' : 'Select Dept'}</option>
-                      {departments.map(d => <option key={d.id} value={d.id}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
+                      <option value="" className="bg-slate-900 text-white">{language === 'ar' ? 'اختر الجهة' : 'Select Dept'}</option>
+                      {departments.map(d => <option key={d.id} value={d.id} className="bg-slate-900 text-white">{language === 'ar' ? d.name_ar : d.name_en}</option>)}
                     </select>
                   </div>
                 )}
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">{language === 'ar' ? 'درجة الخطورة' : 'Priority'}</label>
+                <select required value={priority} onChange={e => setPriority(Number(e.target.value))} className="input-premium mb-5">
+                  <option value="1" className="bg-slate-900 text-white">{language === 'ar' ? 'منخفضة (1)' : 'Low (1)'}</option>
+                  <option value="2" className="bg-slate-900 text-white">{language === 'ar' ? 'متوسطة (2)' : 'Medium (2)'}</option>
+                  <option value="3" className="bg-slate-900 text-white">{language === 'ar' ? 'عالية (3)' : 'High (3)'}</option>
+                  <option value="4" className="bg-slate-900 text-white">{language === 'ar' ? 'حالة طوارئ قصوى (4)' : 'Critical (4)'}</option>
+                </select>
               </div>
               <div>
                 <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">{language === 'ar' ? 'وصف المشكلة' : 'Description'}</label>

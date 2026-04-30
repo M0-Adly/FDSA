@@ -221,10 +221,16 @@ export default function AdminPanel() {
                       <p className="text-white/20 text-xs font-bold uppercase tracking-widest mt-1">Citizen Profile Records</p>
                     </div>
                     <div className="flex gap-2">
-                      <button disabled={actionLoading} onClick={() => handleStatusUpdate(selectedCitizen.id, 'approved')} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-emerald-500/20 hover:scale-105 transition-all">قبول</button>
-                      <button disabled={actionLoading} onClick={() => handleStatusUpdate(selectedCitizen.id, 'rejected')} className="px-5 py-2.5 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-xs font-black uppercase hover:scale-105 transition-all">رفض</button>
-                      <button disabled={actionLoading} onClick={() => handleStatusUpdate(selectedCitizen.id, 'suspended')} className="px-5 py-2.5 bg-amber-600/20 text-amber-400 border border-amber-600/30 rounded-xl text-xs font-black uppercase hover:scale-105 transition-all">إيقاف</button>
-                      <button disabled={actionLoading} onClick={() => handleDelete(selectedCitizen.id, 'citizen')} className="px-5 py-2.5 bg-white/5 text-white/30 border border-white/10 rounded-xl text-xs font-black uppercase hover:bg-red-600 hover:text-white transition-all">حذف</button>
+                      {selectedCitizen.account_status !== 'approved' && (
+                        <button disabled={actionLoading} onClick={() => handleStatusUpdate(selectedCitizen.id, 'approved')} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase shadow-lg shadow-emerald-500/20 hover:scale-105 transition-all">قبول</button>
+                      )}
+                      {selectedCitizen.account_status !== 'rejected' && (
+                        <button disabled={actionLoading} onClick={() => handleStatusUpdate(selectedCitizen.id, 'rejected')} className="px-5 py-2.5 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-xs font-black uppercase hover:scale-105 transition-all">رفض</button>
+                      )}
+                      {selectedCitizen.account_status !== 'suspended' && (
+                        <button disabled={actionLoading} onClick={() => handleStatusUpdate(selectedCitizen.id, 'suspended')} className="px-5 py-2.5 bg-amber-600/20 text-amber-400 border border-amber-600/30 rounded-xl text-xs font-black uppercase hover:scale-105 transition-all">إيقاف</button>
+                      )}
+                      <button disabled={actionLoading} onClick={() => handleDelete(selectedCitizen.id, 'citizen')} className="px-5 py-2.5 bg-white/5 text-white/30 border border-white/10 rounded-xl text-xs font-black uppercase hover:bg-red-600 hover:text-white transition-all">حذف نهائي</button>
                     </div>
                   </div>
 
