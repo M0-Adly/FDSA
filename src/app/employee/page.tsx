@@ -34,6 +34,9 @@ export default function EmployeeDashboard() {
       if (!session) { window.location.replace('/employee/login'); return; }
       setUser(session.user);
 
+      const userEmail = session.user.email?.toLowerCase();
+      const isSuperAdmin = userEmail === 'adlyneedbonus@aast.com' || userEmail === 'adly1@aast.com';
+
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -46,17 +49,17 @@ export default function EmployeeDashboard() {
         const tempName = session.user.email?.split('@')[0] || 'User';
         const { data: newProfile, error: createError } = await supabase.from('profiles').upsert({
           id: session.user.id,
-          role: 'employee', // Default to employee, admin will upgrade later via SQL
+          role: isSuperAdmin ? 'admin' : 'employee',
           full_name: tempName,
           account_status: 'approved'
         }).select().single();
         
         if (createError) throw createError;
-        setProfile(newProfile);
-        setIsProfileIncomplete(true);
+        setProfile({ ...newProfile, isSuperAdmin });
+        if (!isSuperAdmin) setIsProfileIncomplete(true);
       } else {
-        setProfile(profileData);
-        if (profileData.role === 'employee' && (!profileData.national_id || !profileData.phone)) {
+        setProfile({ ...profileData, isSuperAdmin: isSuperAdmin || profileData.role === 'admin' });
+        if (!isSuperAdmin && profileData.role === 'employee' && (!profileData.national_id || !profileData.phone)) {
           setIsProfileIncomplete(true);
           setCompName(profileData.full_name || '');
         }
@@ -107,7 +110,7 @@ export default function EmployeeDashboard() {
     </div>
   );
 
-  if (isProfileIncomplete && profile?.role !== 'admin') {
+  if (isProfileIncomplete && !profile?.isSuperAdmin) {
     return (
       <div className="min-h-screen bg-[#080c1a] flex items-center justify-center p-4">
         <div className="w-full max-w-lg bg-white/5 border border-white/10 rounded-[2.5rem] p-10 backdrop-blur-3xl shadow-2xl">

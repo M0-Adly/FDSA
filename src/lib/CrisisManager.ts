@@ -24,8 +24,25 @@ export class CrisisManager {
   }
 
   async initialize() {
-    const { data: districts } = await supabase.from('districts').select('*').order('id');
-    const { data: departments } = await supabase.from('departments').select('*').order('id');
+    let { data: districts } = await supabase.from('districts').select('*').order('id');
+    let { data: departments } = await supabase.from('departments').select('*').order('id');
+
+    // AUTO-SEED if DB is empty to prevent UI Breakage
+    if (!districts || districts.length === 0) {
+      console.log('Seeding districts and departments...');
+      await supabase.from('districts').insert([
+        { id: 1, name_en: 'District 1', name_ar: 'قسم أول' },
+        { id: 2, name_en: 'District 2', name_ar: 'قسم ثان' }
+      ]);
+      await supabase.from('departments').insert([
+        { district_id: 1, name_en: 'Fire Dept', name_ar: 'المطافي' }, { district_id: 1, name_en: 'Police Dept', name_ar: 'قسم الشرطة' }, { district_id: 1, name_en: 'Ambulance', name_ar: 'الإسعاف' }, { district_id: 1, name_en: 'Water Co.', name_ar: 'شركة المياه' }, { district_id: 1, name_en: 'Electricity Co.', name_ar: 'شركة الكهرباء' }, { district_id: 1, name_en: 'Gas Co.', name_ar: 'طوارئ الغاز' },
+        { district_id: 2, name_en: 'Fire Dept', name_ar: 'المطافي' }, { district_id: 2, name_en: 'Police Dept', name_ar: 'قسم الشرطة' }, { district_id: 2, name_en: 'Ambulance', name_ar: 'الإسعاف' }, { district_id: 2, name_en: 'Water Co.', name_ar: 'شركة المياه' }, { district_id: 2, name_en: 'Electricity Co.', name_ar: 'شركة الكهرباء' }, { district_id: 2, name_en: 'Gas Co.', name_ar: 'طوارئ الغاز' }
+      ]);
+      const resDist = await supabase.from('districts').select('*').order('id');
+      const resDept = await supabase.from('departments').select('*').order('id');
+      districts = resDist.data;
+      departments = resDept.data;
+    }
 
     if (!districts || !departments) return;
 
@@ -33,7 +50,7 @@ export class CrisisManager {
       const distNode = new DepartmentNode(dist.id + 1000, dist.name_en, dist.name_ar, dist.id);
       this.root.children.insertLast(distNode);
 
-      departments.filter(d => d.district_id === dist.id).forEach(dept => {
+      departments!.filter(d => d.district_id === dist.id).forEach(dept => {
         const deptNode = new DepartmentNode(dept.id, dept.name_en, dept.name_ar, dist.id);
         distNode.children.insertLast(deptNode);
       });

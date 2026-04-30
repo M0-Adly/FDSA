@@ -36,7 +36,6 @@ export default function AdminPanel() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { window.location.replace('/employee/login'); return; }
       
-      // Force fetch the latest profile directly from DB to avoid any caching
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -45,11 +44,14 @@ export default function AdminPanel() {
       
       if (error) console.error('Error fetching role:', error);
       
-      setCurrentUser(profile);
+      // FORCE ADMIN CHECK
+      const userEmail = session.user.email?.toLowerCase();
+      const isSuperAdmin = userEmail === 'adlyneedbonus@aast.com' || userEmail === 'adly1@aast.com' || profile?.role === 'admin';
+      
+      setCurrentUser({ ...profile, isSuperAdmin, email: userEmail });
       setLoadingRole(false);
       
-      // Default to staff_list if admin
-      if (profile?.role === 'admin') {
+      if (isSuperAdmin) {
         setActiveTab('staff_list');
         fetchCitizens();
         fetchEmployees();
@@ -108,7 +110,7 @@ export default function AdminPanel() {
 
   if (loadingRole) return <div className="p-20 text-center text-white/20 font-black tracking-widest animate-pulse">VERIFYING ACCESS PRIVILEGES...</div>;
 
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.isSuperAdmin;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#080c1a] p-4 md:p-8">
