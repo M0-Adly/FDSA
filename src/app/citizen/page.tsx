@@ -3,9 +3,23 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 import { CrisisManager } from '@/lib/CrisisManager';
 import { useLanguage } from '@/components/LanguageContext';
+import 'leaflet/dist/leaflet.css';
+
+const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
+const Marker = dynamic(() => import('react-leaflet').then(m => m.Marker), { ssr: false });
+const useMapEvents = dynamic(() => import('react-leaflet').then(m => m.useMapEvents), { ssr: false });
+
+function MapClickHandler({ onClick }: { onClick: (latlng: any) => void }) {
+  const map = useMapEvents({
+    click: (e) => onClick(e.latlng),
+  });
+  return null;
+}
 
 interface Report {
   id: string;
@@ -41,6 +55,8 @@ export default function CitizenDashboard() {
   const [resubmitFile, setResubmitFile] = useState<File | null>(null);
 
   const [includeGps, setIncludeGps] = useState(false);
+  const [manualLocation, setManualLocation] = useState<[number, number] | null>(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -127,10 +143,10 @@ export default function CitizenDashboard() {
       if (!selectedDept || !user) return;
       setSubmitting(true);
       try {
-        let lat = undefined;
-        let lng = undefined;
+        let lat = manualLocation ? manualLocation[0] : undefined;
+        let lng = manualLocation ? manualLocation[1] : undefined;
 
-        if (includeGps) {
+        if (includeGps && !manualLocation) {
           showToast(language === 'ar' ? 'جاري تحديد موقعك الجغرافي (يرجى الانتظار)...' : 'Getting location (please wait)...');
           
           if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
@@ -151,11 +167,9 @@ export default function CitizenDashboard() {
             lng = position.coords.longitude;
           } catch (err: any) {
             console.error("GPS Error:", err);
-            let msg = language === 'ar' ? 'فشل تحديد الموقع. تأكد من تفعيل الـ GPS والسماح للمتصفح!' : 'Location failed. Enable GPS and permissions!';
-            if (err.code === 1) msg = language === 'ar' ? 'يرجى السماح للمتصفح بالوصول للموقع (Permission Denied)' : 'Please allow location access.';
-            if (err.code === 3) msg = language === 'ar' ? 'انتهت المهلة. حاول مرة أخرى في مكان مكشوف.' : 'Timeout. Try again in an open area.';
-            
+            let msg = language === 'ar' ? 'فشل تحديد الموقع التلقائي. يرجى استخداد الخريطة يدوياً.' : 'Auto-location failed. Please use the map manually.';
             showToast(msg);
+            setShowMapPicker(true);
             setSubmitting(false);
             return; 
           }
@@ -173,6 +187,8 @@ export default function CitizenDashboard() {
         setTab('reports');
         setDescription('');
         setPriority(3);
+        setManualLocation(null);
+        setShowMapPicker(false);
         fetchMyReports(user.id);
       } catch (err: any) {
         showToast(err.message);
@@ -341,17 +357,55 @@ export default function CitizenDashboard() {
                 <textarea required rows={5} value={description} onChange={e => setDescription(e.target.value)} className="input-premium resize-none" placeholder={language === 'ar' ? 'اشرح ما حدث بالتفصيل...' : 'Details...'} />
               </div>
 
-              <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-2xl">
-                <input 
-                  type="checkbox" 
-                  id="includeGps" 
-                  checked={includeGps} 
-                  onChange={e => setIncludeGps(e.target.checked)}
-                  className="w-5 h-5 rounded border-white/20 bg-black/20 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-gray-900"
-                />
-                <label htmlFor="includeGps" className="text-sm font-bold text-white/80 cursor-pointer flex-1">
-                  {language === 'ar' ? 'إرفاق موقعي الحالي بدقة (GPS) 📍' : 'Include my current GPS location 📍'}
-                </label>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-2xl">
+                  <input 
+                    type="checkbox" 
+                    id="includeGps" 
+                    checked={includeGps} 
+                    onChange={e => setIncludeGps(e.target.checked)}
+                    className="w-5 h-5 rounded border-white/20 bg-black/20 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-gray-900"
+                  />
+                  <label htmlFor="includeGps" className="text-sm font-bold text-white/80 cursor-pointer flex-1">
+                    {language === 'ar' ? 'إرفاق موقعي الحالي بدقة (GPS) 📍' : 'Include my current GPS location 📍'}
+                  </label>
+                </div>
+
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowMapPicker(!showMapPicker)}
+                    className="w-full flex items-center justify-between text-sm font-bold text-indigo-400"
+                  >
+                    <span>{language === 'ar' ? 'تحديد الموقع يدوياً على الخريطة 🗺️' : 'Select location manually on map 🗺️'}</span>
+                    <span className="text-xs">{showMapPicker ? '▲' : '▼'}</span>
+                  </button>
+
+                  {showMapPicker && (
+                    <div className="mt-4 space-y-4">
+                      <div className="h-60 rounded-xl overflow-hidden border border-white/10 relative z-10">
+                        <MapContainer 
+                          center={[24.0889, 32.8998]} 
+                          zoom={13} 
+                          style={{ height: '100%', width: '100%' }}
+                        >
+                          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                          <MapClickHandler onClick={(latlng) => setManualLocation([latlng.lat, latlng.lng])} />
+                          {manualLocation && <Marker position={manualLocation} />}
+                        </MapContainer>
+                      </div>
+                      <p className="text-[10px] text-white/40 italic text-center">
+                        {language === 'ar' ? 'اضغط على الخريطة لتحديد مكان المشكلة بالضبط' : 'Click on the map to set the exact location'}
+                      </p>
+                      {manualLocation && (
+                        <div className="flex items-center justify-between bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                          <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">الموقع محدد ✅</span>
+                          <button type="button" onClick={() => setManualLocation(null)} className="text-[10px] text-white/20 hover:text-white/50">إلغاء</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <button type="submit" disabled={submitting} className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-500/30 active:scale-95 disabled:opacity-50 mt-4">
