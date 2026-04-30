@@ -92,32 +92,26 @@ export default function CitizenDashboard() {
     setSubmitting(true);
     try {
       let imageUrl = profile.national_id_image_url;
-      
       if (resubmitFile) {
         const fileExt = resubmitFile.name.split('.').pop();
         const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('national-ids').upload(fileName, resubmitFile);
-        if (uploadError) throw uploadError;
+        await supabase.storage.from('national-ids').upload(fileName, resubmitFile);
         const { data: { publicUrl } } = supabase.storage.from('national-ids').getPublicUrl(fileName);
         imageUrl = publicUrl;
       }
-
       const { error } = await supabase.from('profiles').update({
         full_name: resubmitName,
         national_id: resubmitID,
         national_id_image_url: imageUrl,
         account_status: 'pending'
       }).eq('id', user.id);
-
       if (error) throw error;
-      setToast(language === 'ar' ? 'تم إعادة تقديم البيانات بنجاح' : 'Data resubmitted successfully');
+      setToast(language === 'ar' ? 'تم إعادة تقديم البيانات بنجاح' : 'Resubmitted');
       setTab('reports');
       checkAuth();
     } catch (err: any) {
-      setToast('Error: ' + err.message);
-    } finally {
-      setSubmitting(false);
-    }
+      setToast(err.message);
+    } finally { setSubmitting(false); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,18 +125,21 @@ export default function CitizenDashboard() {
       setToast(t('success_submit'));
       setTab('reports');
       setDescription('');
-      setPriority(3);
-      setSelectedDept('');
       fetchMyReports(user.id);
     } catch (err: any) {
-      setToast('Error: ' + err.message);
-    } finally {
-      setSubmitting(false);
-      setTimeout(() => setToast(null), 3000);
-    }
+      setToast(err.message);
+    } finally { setSubmitting(false); }
   };
 
-  if (loading) return <div className="flex items-center justify-center py-20 text-white/20 animate-pulse font-black uppercase">Loading...</div>;
+  const filteredReports = reports.filter(r => {
+    if (statusFilter === 'All') return true;
+    if (statusFilter === 'Active') return r.status === 'pending' || r.status === 'ongoing';
+    if (statusFilter === 'Awaiting Confirmation') return r.status === 'resolved' && !r.citizen_confirmed;
+    if (statusFilter === 'Resolved') return r.status === 'resolved' && r.citizen_confirmed;
+    return r.status.toLowerCase() === statusFilter.toLowerCase();
+  });
+
+  if (loading) return <div className="p-20 text-center font-black animate-pulse text-white/20">LOADING...</div>;
 
   const isApproved = profile?.account_status === 'approved';
   const showBanner = profile && (
@@ -153,66 +150,106 @@ export default function CitizenDashboard() {
   );
 
   return (
-    <>
+    <div className="animate-fade-in">
       {showBanner && (
-        <div className={`mb-6 p-5 rounded-3xl border shadow-xl animate-fade-in flex flex-col sm:flex-row items-center justify-between gap-4 ${
+        <div className={`mb-8 p-5 rounded-3xl border flex flex-col sm:flex-row items-center justify-between gap-4 ${
           profile.account_status === 'approved' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
           profile.account_status === 'pending' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
           profile.account_status === 'suspended' ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' :
           'bg-red-500/10 border-red-500/20 text-red-400'
         }`}>
           <div className="flex items-center gap-4">
-            <span className="text-2xl">
-              {profile.account_status === 'approved' ? '✅' : profile.account_status === 'pending' ? '⏳' : profile.account_status === 'suspended' ? '🚫' : '⚠️'}
-            </span>
-            <div className="text-center sm:text-left">
-              <p className="font-black uppercase tracking-wider text-xs mb-1">{language === 'ar' ? 'حالة الحساب' : 'Account Status'}</p>
-              <p className="text-sm font-bold leading-relaxed max-w-lg">
-                {profile.account_status === 'approved' ? (language === 'ar' ? 'تم قبول حسابك بنجاح' : 'Account Approved Successfully') :
-                 profile.account_status === 'pending' ? (language === 'ar' ? 'حسابك قيد المراجعة حالياً' : 'Under Review') :
-                 profile.account_status === 'suspended' ? (language === 'ar' ? 'عذراً تم إيقاف حسابك لارتكابك شيء مخالف الرجاء التواصل مع الإدارة لحل المشكلة' : 'Account Suspended') :
-                 (language === 'ar' ? 'عذراً لم يتم قبول حسابك بسبب عدم وضوح البيانات الشخصية أو صورة البطاقة الشخصية الرجاء مراجعة البيانات وإعادة التقديم' : 'Account Rejected')}
-              </p>
-            </div>
+            <span className="text-2xl">{profile.account_status === 'approved' ? '✅' : profile.account_status === 'pending' ? '⏳' : '🚫'}</span>
+            <p className="text-sm font-bold leading-relaxed">
+              {profile.account_status === 'approved' ? (language === 'ar' ? 'تم قبول حسابك بنجاح' : 'Approved') :
+               profile.account_status === 'pending' ? (language === 'ar' ? 'حسابك قيد المراجعة حالياً' : 'Reviewing') :
+               profile.account_status === 'suspended' ? (language === 'ar' ? 'عذراً تم إيقاف حسابك لارتكابك شيء مخالف الرجاء التواصل مع الإدارة لحل المشكلة' : 'Suspended') :
+               (language === 'ar' ? 'عذراً لم يتم قبول حسابك بسبب عدم وضوح البيانات الشخصية أو صورة البطاقة الشخصية الرجاء مراجعة البيانات وإعادة التقديم' : 'Rejected')}
+            </p>
           </div>
           {profile.account_status === 'rejected' && (
-            <button onClick={() => setTab('resubmit')} className="px-5 py-2.5 bg-red-500 text-white rounded-xl text-xs font-black uppercase hover:scale-105 transition-all shadow-lg shadow-red-500/30">
+            <button onClick={() => setTab('resubmit')} className="px-5 py-2 bg-red-500 text-white rounded-xl text-xs font-black uppercase">
               {language === 'ar' ? 'إعادة التقديم' : 'Re-submit'}
             </button>
           )}
         </div>
       )}
 
-      <div className="mb-8 flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-black">{t('welcome')}, <span className="text-indigo-400">{profile?.full_name}</span></h1>
-          <p className="text-white/20 text-sm mt-1">{language === 'ar' ? 'بوابة المواطن الرسمية' : 'Official Citizen Portal'}</p>
-        </div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-black">{t('welcome')}, <span className="text-indigo-400">{profile?.full_name}</span></h1>
+        <p className="text-white/20 text-sm mt-1">{language === 'ar' ? 'لوحة التحكم الوطنية' : 'National Dashboard'}</p>
+      </div>
+
+      {/* DASHBOARD STATS RE-ADDED */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {[
+          { label: t('total_reports'), value: reports.length, color: 'indigo', icon: '📋' },
+          { label: t('ongoing'), value: reports.filter(r => r.status === 'ongoing').length, color: 'blue', icon: '🔵' },
+          { label: t('resolved'), value: reports.filter(r => r.status === 'resolved').length, color: 'emerald', icon: '✅' },
+        ].map(({ label, value, color, icon }) => (
+          <div key={label} className={`bg-white/5 border border-white/10 rounded-3xl p-6 text-center backdrop-blur-xl transition hover:bg-white/10`}>
+            <span className="text-3xl block mb-2">{icon}</span>
+            <p className="text-4xl font-black mb-1">{value}</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-white/30">{label}</p>
+          </div>
+        ))}
       </div>
 
       <div className="flex gap-1 p-1 bg-white/5 rounded-2xl border border-white/10 mb-8 w-fit">
-        <button onClick={() => setTab('reports')} className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all ${tab === 'reports' ? 'bg-indigo-600 text-white' : 'text-white/40 hover:text-white/70'}`}>
+        <button onClick={() => setTab('reports')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${tab === 'reports' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white/70'}`}>
           {language === 'ar' ? 'بلاغاتي' : 'My Reports'}
         </button>
-        <button onClick={() => isApproved && setTab('submit')} disabled={!isApproved} className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all ${!isApproved ? 'opacity-30' : tab === 'submit' ? 'bg-indigo-600 text-white' : 'text-white/40 hover:text-white/70'}`}>
+        <button onClick={() => isApproved && setTab('submit')} disabled={!isApproved} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${!isApproved ? 'opacity-20' : tab === 'submit' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white/70'}`}>
           {language === 'ar' ? 'بلاغ جديد' : 'New Report'}
         </button>
       </div>
 
       <div className="animate-fade-in">
         {tab === 'reports' && (
-          <div className="grid grid-cols-1 gap-3">
-            {reports.length === 0 ? <p className="text-center py-20 text-white/10 font-bold italic">No reports found.</p> :
-              reports.map(r => (
-                <div key={r.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl flex justify-between items-center group hover:bg-white/[0.08] transition-all">
-                  <div>
-                    <h3 className="font-bold text-white/90">{r.type}</h3>
-                    <p className="text-[10px] text-white/40 mt-1">{new Date(r.created_at).toLocaleString()}</p>
+          <div className="space-y-4">
+            <div className="flex gap-2 flex-wrap mb-4">
+              {(['All', 'Active', 'Awaiting Confirmation', 'Resolved'] as const).map(s => (
+                <button key={s} onClick={() => setStatusFilter(s)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${statusFilter === s ? 'bg-white/10 border-white/20 text-white' : 'border-transparent text-white/30 hover:text-white/50'}`}>{t(s.toLowerCase().replace(/ /g, '_'))}</button>
+              ))}
+            </div>
+            
+            {reports.length === 0 ? <p className="py-20 text-center text-white/10 font-bold italic">No records yet.</p> :
+              filteredReports.map(r => (
+                <div key={r.id} className="p-6 bg-white/5 border border-white/10 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-6 group hover:bg-white/[0.08] transition-all">
+                  <div className="flex items-center gap-5">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${r.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
+                      {r.status === 'resolved' ? '✅' : '📄'}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-white/90">{r.type}</h3>
+                      <p className="text-xs text-white/40">{new Date(r.created_at).toLocaleString()}</p>
+                    </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase border ${
-                    r.status === 'resolved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-                    'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                  }`}>{r.status}</span>
+                  
+                  {/* RESOLUTION CONFIRMATION RE-ADDED */}
+                  <div className="flex items-center gap-4">
+                    {r.status === 'resolved' && !r.citizen_confirmed && (
+                      <div className="flex gap-2">
+                        <button onClick={async () => {
+                          const mgr = new CrisisManager();
+                          await mgr.confirmResolution(r.id, user.id);
+                          fetchMyReports(user.id);
+                          setToast(language === 'ar' ? 'تم تأكيد حل البلاغ' : 'Confirmed');
+                        }} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase hover:scale-105 transition-all">
+                          {language === 'ar' ? 'تأكيد الحل' : 'Confirm Fixed'}
+                        </button>
+                        <button onClick={async () => {
+                          const mgr = new CrisisManager();
+                          await mgr.reopenReport(r.id, user.id);
+                          fetchMyReports(user.id);
+                          setToast(language === 'ar' ? 'تم إعادة فتح البلاغ' : 'Reopened');
+                        }} className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-xs font-black uppercase hover:scale-105 transition-all">
+                          {language === 'ar' ? 'لم يتم الحل' : 'Not Fixed'}
+                        </button>
+                      </div>
+                    )}
+                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase border ${r.status === 'resolved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>{t(r.status)}</span>
+                  </div>
                 </div>
               ))
             }
@@ -220,57 +257,59 @@ export default function CitizenDashboard() {
         )}
 
         {tab === 'submit' && (
-          <div className="bg-white/5 border border-white/10 rounded-3xl p-8 max-w-lg">
-            <h2 className="text-xl font-black mb-6 flex items-center gap-2"><span>📝</span> {language === 'ar' ? 'تقديم بلاغ جديد' : 'New Report'}</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <select required value={selectedDistrict} onChange={e => setSelectedDistrict(e.target.value)} className="input-premium">
-                <option value="">{language === 'ar' ? 'اختر المنطقة' : 'Select District'}</option>
-                {districts.map(d => <option key={d.id} value={d.id}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
-              </select>
-              {selectedDistrict && (
-                <select required value={selectedDept} onChange={e => setSelectedDept(e.target.value)} className="input-premium">
-                  <option value="">{language === 'ar' ? 'اختر الجهة' : 'Select Dept'}</option>
-                  {departments.map(d => <option key={d.id} value={d.id}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
-                </select>
-              )}
-              <textarea required rows={4} value={description} onChange={e => setDescription(e.target.value)} className="input-premium resize-none" placeholder={language === 'ar' ? 'وصف المشكلة...' : 'Describe...'} />
-              <button type="submit" disabled={submitting} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-500/30">
-                {submitting ? '...' : language === 'ar' ? 'إرسال البلاغ' : 'Submit'}
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-8 max-w-xl mx-auto backdrop-blur-xl shadow-2xl">
+            <h2 className="text-2xl font-black mb-8 flex items-center gap-3"><span>📝</span> {language === 'ar' ? 'تقديم بلاغ جديد' : 'New Report'}</h2>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">{language === 'ar' ? 'المنطقة' : 'District'}</label>
+                  <select required value={selectedDistrict} onChange={e => {setSelectedDistrict(e.target.value); setSelectedDept('');}} className="input-premium">
+                    <option value="">{language === 'ar' ? 'اختر المنطقة' : 'Select District'}</option>
+                    {districts.map(d => <option key={d.id} value={d.id}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
+                  </select>
+                </div>
+                {selectedDistrict && (
+                  <div>
+                    <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">{language === 'ar' ? 'الجهة المختصة' : 'Department'}</label>
+                    <select required value={selectedDept} onChange={e => setSelectedDept(e.target.value)} className="input-premium">
+                      <option value="">{language === 'ar' ? 'اختر الجهة' : 'Select Dept'}</option>
+                      {departments.map(d => <option key={d.id} value={d.id}>{language === 'ar' ? d.name_ar : d.name_en}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">{language === 'ar' ? 'وصف المشكلة' : 'Description'}</label>
+                <textarea required rows={5} value={description} onChange={e => setDescription(e.target.value)} className="input-premium resize-none" placeholder={language === 'ar' ? 'اشرح ما حدث بالتفصيل...' : 'Details...'} />
+              </div>
+              <button type="submit" disabled={submitting} className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-500/30 active:scale-95 disabled:opacity-50">
+                {submitting ? '...' : language === 'ar' ? 'إرسال البلاغ الآن' : 'Submit Report'}
               </button>
             </form>
           </div>
         )}
 
         {tab === 'resubmit' && (
-          <div className="bg-white/5 border border-white/10 rounded-3xl p-8 max-w-lg">
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-8 max-w-lg mx-auto backdrop-blur-xl">
             <h2 className="text-xl font-black mb-6 text-red-400">{language === 'ar' ? 'تحديث بيانات الحساب' : 'Update Profile'}</h2>
-            <form onSubmit={handleResubmit} className="space-y-5">
-              <div>
-                <label className="text-[10px] font-black text-white/30 uppercase mb-2 block">{language === 'ar' ? 'الاسم الكامل' : 'Full Name'}</label>
-                <input required value={resubmitName} onChange={e => setResubmitName(e.target.value)} className="input-premium" />
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-white/30 uppercase mb-2 block">{language === 'ar' ? 'الرقم القومي' : 'National ID'}</label>
-                <input required value={resubmitID} onChange={e => setResubmitID(e.target.value)} className="input-premium" />
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-white/30 uppercase mb-2 block">{language === 'ar' ? 'صورة البطاقة الجديدة' : 'New ID Image'}</label>
-                <input type="file" onChange={e => setResubmitFile(e.target.files?.[0] || null)} className="text-xs text-white/40" />
-              </div>
-              <button type="submit" disabled={submitting} className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-500 transition-all">
-                {submitting ? '...' : language === 'ar' ? 'إرسال للمراجعة' : 'Submit for Review'}
+            <form onSubmit={handleResubmit} className="space-y-6">
+              <input required value={resubmitName} onChange={e => setResubmitName(e.target.value)} className="input-premium" placeholder="Name" />
+              <input required value={resubmitID} onChange={e => setResubmitID(e.target.value)} className="input-premium" placeholder="ID" />
+              <input type="file" onChange={e => setResubmitFile(e.target.files?.[0] || null)} className="text-xs text-white/40" />
+              <button type="submit" disabled={submitting} className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20">
+                {submitting ? '...' : language === 'ar' ? 'إرسال للمراجعة' : 'Submit Review'}
               </button>
-              <button type="button" onClick={() => setTab('reports')} className="w-full text-xs text-white/20 hover:text-white/40">Cancel</button>
+              <button type="button" onClick={() => setTab('reports')} className="w-full text-xs text-white/20 hover:text-white/40 mt-4">Cancel</button>
             </form>
           </div>
         )}
       </div>
 
       {toast && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-2xl animate-slide-up z-[100]">
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 bg-indigo-600 text-white rounded-3xl font-black shadow-2xl animate-slide-up z-[200] border border-white/10 backdrop-blur-xl">
           {toast}
         </div>
       )}
-    </>
+    </div>
   );
 }
