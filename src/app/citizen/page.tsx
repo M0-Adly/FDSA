@@ -131,15 +131,18 @@ export default function CitizenDashboard() {
         let lng = undefined;
 
         if (includeGps) {
+          showToast(language === 'ar' ? 'جاري تحديد موقعك الجغرافي...' : 'Getting location...');
           try {
             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, enableHighAccuracy: true });
+              navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000, enableHighAccuracy: true });
             });
             lat = position.coords.latitude;
             lng = position.coords.longitude;
-          } catch (err) {
-            console.warn("GPS access denied or timed out");
-            showToast(language === 'ar' ? 'فشل تحديد الموقع الجغرافي' : 'Failed to get GPS location');
+          } catch (err: any) {
+            console.warn("GPS access denied or timed out", err);
+            showToast(language === 'ar' ? 'فشل تحديد الموقع. تأكد من تفعيل الـ GPS بالمتصفح!' : 'Failed to get GPS location. Enable permissions!');
+            setSubmitting(false);
+            return; // 🛑 Abort submission if GPS was requested but failed
           }
         }
 
@@ -151,7 +154,7 @@ export default function CitizenDashboard() {
           user.id
         );
         
-        showToast(language === 'ar' ? 'تم إرسال البلاغ مع تحديد موقعك بنجاح' : 'Report submitted with GPS location');
+        showToast(language === 'ar' ? 'تم إرسال البلاغ بنجاح' : 'Report submitted successfully');
         setTab('reports');
         setDescription('');
         setPriority(3);
