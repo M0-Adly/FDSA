@@ -24,7 +24,7 @@ export default function CitizenDashboard() {
   const [districts, setDistricts] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [selectedDistrict, setSelectedDistrict] = useState('');
-  const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
+  const [selectedDept, setSelectedDept] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState(3);
   const [loading, setLoading] = useState(true);
@@ -80,14 +80,14 @@ export default function CitizenDashboard() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedDepts.length === 0 || !user) return;
+    if (!selectedDept || !user) return;
     setSubmitting(true);
     
     try {
       const mgr = new CrisisManager();
       await mgr.initialize();
-      const deptIds = selectedDepts.map(id => parseInt(id));
-      await mgr.fileReport(deptIds, {
+      // Send as array with one ID to match updated CrisisManager signature
+      await mgr.fileReport([parseInt(selectedDept)], {
         description,
         priority: parseInt(priority.toString())
       }, user.id);
@@ -96,7 +96,7 @@ export default function CitizenDashboard() {
       setTab('reports');
       setDescription('');
       setPriority(3);
-      setSelectedDepts([]);
+      setSelectedDept('');
       fetchMyReports(user.id);
     } catch (err: any) {
       setToast('Error: ' + err.message);
@@ -141,35 +141,13 @@ export default function CitizenDashboard() {
 
   return (
     <>
-      {/* Welcome */}
       <div className="mb-8 animate-fade-in">
         <h1 className="text-3xl font-black">
           {t('welcome')}, <span className="text-indigo-400">{profile?.full_name || user?.email?.replace('@citizen.eg', '') || 'Citizen'}</span>
         </h1>
         <p className="text-white/30 text-sm mt-1">{t('citizen_access')}.</p>
-        
-        {profile?.account_status === 'pending' && (
-          <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3">
-            <span className="text-amber-400 text-xl">⏳</span>
-            <div>
-              <h3 className="font-bold text-amber-400">{t('pending_approval')}</h3>
-              <p className="text-sm text-amber-200/70 mt-1">{language === 'ar' ? 'حسابك حالياً تحت المراجعة من قبل الإدارة. لا يمكنك إرسال بلاغات جديدة حتى يتم تفعيل الحساب.' : 'Your account is currently under review. You cannot submit new reports until approved.'}</p>
-            </div>
-          </div>
-        )}
-        
-        {profile?.account_status === 'rejected' && (
-          <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3">
-            <span className="text-red-400 text-xl">❌</span>
-            <div>
-              <h3 className="font-bold text-red-400">Account Rejected</h3>
-              <p className="text-sm text-red-200/70 mt-1">Your account application was declined. Please contact support.</p>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         {[
           { label: t('total_reports'), value: reports.length, color: 'indigo', icon: '📋' },
@@ -184,7 +162,6 @@ export default function CitizenDashboard() {
         ))}
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 p-1 bg-white/5 rounded-2xl border border-white/10 mb-6 w-fit">
         {[
           { key: 'reports' as const, label: t('my_reports'), icon: '📄' },
@@ -201,12 +178,9 @@ export default function CitizenDashboard() {
         ))}
       </div>
 
-      {/* Content */}
       <div className="animate-fade-in">
-        {/* My Reports Tab */}
         {tab === 'reports' && (
           <div className="space-y-4">
-            {/* Status Filter */}
             <div className="flex items-center gap-2 flex-wrap">
               <svg className="w-4 h-4 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
               {(['All', 'Active', 'Awaiting Confirmation', 'Resolved'] as const).map(s => (
@@ -217,19 +191,12 @@ export default function CitizenDashboard() {
                   {t(s.toLowerCase().replace(/ /g, '_'))}
                 </button>
               ))}
-              <button onClick={() => user && fetchMyReports(user.id)} className="ml-auto text-white/30 hover:text-white/60 transition">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-              </button>
             </div>
 
             {filteredReports.length === 0 ? (
               <div className="text-center py-16 text-white/20">
                 <span className="text-4xl mb-4 block">📋</span>
                 <p className="font-bold">{t('no_reports')}</p>
-                <p className="text-sm mt-1">{t('submit_first')}</p>
-                <button onClick={() => setTab('submit')} className="mt-4 px-4 py-2 bg-indigo-600/30 border border-indigo-500/30 rounded-xl text-indigo-400 text-sm font-bold hover:bg-indigo-600/50 transition">
-                  {t('submit_report')} →
-                </button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -251,56 +218,24 @@ export default function CitizenDashboard() {
                           }`}>
                             {report.status === 'resolved' ? (report.citizen_confirmed ? t('fully_resolved') : t('resolution_pending')) : t(report.status)}
                           </span>
-                          <span className="text-[10px] text-white/20 font-mono">
-                            {new Date(report.created_at).toLocaleDateString()}
-                          </span>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center gap-2">
                       {report.status === 'resolved' && !report.citizen_confirmed && (
-                        <>
-                          <button 
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const mgr = new CrisisManager();
-                                await mgr.confirmResolution(report.id, user.id);
-                                setToast(t('confirmed_msg'));
-                                setTimeout(() => setToast(null), 3000);
-                                fetchMyReports(user.id);
-                              } catch (err: any) {
-                                setToast('Error: ' + (err.message || 'Could not confirm'));
-                                setTimeout(() => setToast(null), 4000);
-                              }
-                            }}
-                            className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20"
-                          >
-                            {t('confirm_fixed')}
-                          </button>
-                          <button 
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              try {
-                                const mgr = new CrisisManager();
-                                await mgr.reopenReport(report.id, user.id);
-                                setToast(t('reopened_msg'));
-                                setTimeout(() => setToast(null), 3000);
-                                fetchMyReports(user.id);
-                              } catch (err: any) {
-                                setToast('Error: ' + (err.message || 'Could not reopen'));
-                                setTimeout(() => setToast(null), 4000);
-                              }
-                            }}
-                            className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-xs font-bold hover:bg-red-500 hover:text-white transition shadow-lg"
-                          >
-                            {t('not_fixed')}
-                          </button>
-                        </>
+                        <div className="flex gap-2">
+                          <button onClick={() => {
+                            const mgr = new CrisisManager();
+                            mgr.confirmResolution(report.id, user.id).then(() => fetchMyReports(user.id));
+                          }} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold">{t('confirm_fixed')}</button>
+                          <button onClick={() => {
+                            const mgr = new CrisisManager();
+                            mgr.reopenReport(report.id, user.id).then(() => fetchMyReports(user.id));
+                          }} className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-xs font-bold">{t('not_fixed')}</button>
+                        </div>
                       )}
                       <div className="text-right px-3">
-                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-tighter">{t('priority')}</p>
                         <p className="font-black text-white/60">P{report.priority}</p>
                       </div>
                     </div>
@@ -321,7 +256,7 @@ export default function CitizenDashboard() {
                 <div>
                   <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">{t('district')}</label>
                   <select required value={selectedDistrict}
-                    onChange={e => { setSelectedDistrict(e.target.value); setSelectedDepts([]); }}
+                    onChange={e => { setSelectedDistrict(e.target.value); setSelectedDept(''); }}
                     className="input-premium appearance-none cursor-pointer">
                     <option value="" className="bg-slate-900">{t('select_district')}</option>
                     {districts.map(d => (
@@ -332,40 +267,15 @@ export default function CitizenDashboard() {
 
                 {selectedDistrict && (
                   <div>
-                    <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-3">{t('department')}</label>
-                    <div className="grid grid-cols-2 gap-2 bg-black/20 p-4 rounded-xl border border-white/5 max-h-48 overflow-y-auto">
-                      {departments.map(d => {
-                        const isSelected = selectedDepts.includes(d.id.toString());
-                        const isPolice = d.name_en.includes('Police');
-                        const needsPolice = selectedDepts.some(id => {
-                          const dept = departments.find(dep => dep.id.toString() === id);
-                          return dept && (dept.name_en.includes('Fire') || dept.name_en.includes('Ambulance'));
-                        });
-
-                        return (
-                          <label key={d.id} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
-                            isSelected ? 'bg-indigo-600/20 border-indigo-500/30' : 'hover:bg-white/5 border-transparent'
-                          } ${(isPolice && needsPolice) ? 'opacity-70 pointer-events-none' : ''}`}>
-                            <input
-                              type="checkbox"
-                              checked={isSelected || (isPolice && needsPolice)}
-                              disabled={isPolice && needsPolice}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedDepts([...selectedDepts, d.id.toString()]);
-                                } else {
-                                  setSelectedDepts(selectedDepts.filter(id => id !== d.id.toString()));
-                                }
-                              }}
-                              className="w-4 h-4 rounded border-white/20 bg-white/5 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span className={`text-xs font-bold ${isSelected || (isPolice && needsPolice) ? 'text-indigo-400' : 'text-white/40'}`}>
-                              {language === 'ar' ? d.name_ar : d.name_en}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
+                    <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">{t('department')}</label>
+                    <select required value={selectedDept}
+                      onChange={e => setSelectedDept(e.target.value)}
+                      className="input-premium appearance-none cursor-pointer">
+                      <option value="" className="bg-slate-900">{t('select_dept')}</option>
+                      {departments.map(d => (
+                        <option key={d.id} value={d.id} className="bg-slate-900">{language === 'ar' ? d.name_ar : d.name_en}</option>
+                      ))}
+                    </select>
                   </div>
                 )}
 
@@ -379,24 +289,14 @@ export default function CitizenDashboard() {
 
                 <div>
                   <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
-                    {t('priority_level')}: <span className={`${getPriorityColor(priority)} font-black`}>{priority}</span>
+                    {t('priority_level')}: <span className="font-black">{priority}</span>
                   </label>
-                  <div className="flex items-center gap-4">
-                    <input type="range" min="1" max="5" value={priority}
-                      onChange={e => setPriority(parseInt(e.target.value))}
-                      className="flex-1 h-1.5 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
-                    <div className="flex gap-1">
-                      {[1,2,3,4,5].map(p => (
-                        <button key={p} type="button" onClick={() => setPriority(p)}
-                          className={`w-7 h-7 rounded-lg text-xs font-black transition-all ${
-                            priority === p ? 'bg-indigo-600 text-white scale-110' : 'bg-white/5 text-white/30 hover:text-white/60'
-                          }`}>{p}</button>
-                      ))}
-                    </div>
-                  </div>
+                  <input type="range" min="1" max="5" value={priority}
+                    onChange={e => setPriority(parseInt(e.target.value))}
+                    className="w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-indigo-500 bg-white/10" />
                 </div>
 
-                <button type="submit" disabled={submitting || selectedDepts.length === 0}
+                <button type="submit" disabled={submitting || !selectedDept}
                   className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-black rounded-xl transition-all shadow-lg shadow-indigo-500/30 disabled:opacity-50 mt-2">
                   {submitting ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
@@ -408,9 +308,8 @@ export default function CitizenDashboard() {
         )}
       </div>
 
-      {/* Toast */}
       {toast && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl font-bold text-sm flex items-center gap-3 border backdrop-blur-md bg-emerald-500/90 border-emerald-400 text-white animate-slide-up">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl font-bold text-sm border backdrop-blur-md bg-emerald-500/90 border-emerald-400 text-white animate-slide-up">
           ✅ {toast}
         </div>
       )}

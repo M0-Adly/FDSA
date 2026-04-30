@@ -24,13 +24,11 @@ export class CrisisManager {
   }
 
   async initialize() {
-    // 1. Fetch Districts and Departments
     const { data: districts } = await supabase.from('districts').select('*').order('id');
     const { data: departments } = await supabase.from('departments').select('*').order('id');
 
     if (!districts || !departments) return;
 
-    // 2. Build Tree
     districts.forEach(dist => {
       const distNode = new DepartmentNode(dist.id + 1000, dist.name_en, dist.name_ar, dist.id);
       this.root.children.insertLast(distNode);
@@ -41,13 +39,11 @@ export class CrisisManager {
       });
     });
 
-    // 3. Fetch Reports and Assignments
     const { data: reports } = await supabase.from('reports').select('*').neq('status', 'resolved');
     const { data: assignments } = await supabase.from('report_assignments').select('*');
     
     if (reports) {
       reports.forEach(r => {
-        // Find all departments assigned to this report
         const assignedDepts = assignments?.filter(a => a.report_id === r.id).map(a => a.department_id) || [r.department_id];
         
         assignedDepts.forEach(deptId => {
@@ -64,36 +60,20 @@ export class CrisisManager {
       });
     }
 
-    // 4. Fetch SimStep (count of all actions)
     const { count } = await supabase.from('report_actions').select('*', { count: 'exact', head: true });
     this.simStep = count || 0;
   }
 
   async fileReport(deptIds: number[], data: Partial<Report>, userId: string) {
     if (deptIds.length === 0) return;
-    
-    // Primary department is the first one selected
-    const primaryDeptId = deptIds[0];
-    const node = this.root.findNode(primaryDeptId);
+    const node = this.root.findNode(deptIds[0]);
     if (!node) return;
-
-    // Apply Mandatory Rules: Fire/Ambulance -> Police
-    const allDepartments = this.getAllDepartmentNodes();
-    const finalDeptIds = new Set(deptIds);
-    
-    deptIds.forEach(id => {
-      const dNode = this.root.findNode(id);
-      if (dNode && (dNode.name_en.includes('Fire') || dNode.name_en.includes('Ambulance'))) {
-        const policeInDistrict = allDepartments.find(d => d.district_id === dNode.district_id && d.name_en.includes('Police'));
-        if (policeInDistrict) finalDeptIds.add(policeInDistrict.id);
-      }
-    });
 
     this.simStep++;
     const type = this.autoDetectType(node.name_en);
     
     const { data: newReport, error } = await supabase.from('reports').insert({
-      department_id: primaryDeptId,
+      department_id: deptIds[0],
       district_id: node.district_id,
       type: type,
       description: data.description,
@@ -104,34 +84,25 @@ export class CrisisManager {
 
     if (error) throw error;
 
-    // Create assignments for all departments
-    const assignmentPayload = Array.from(finalDeptIds).map(id => ({
+    await supabase.from('report_assignments').insert({
       report_id: newReport.id,
-      department_id: id
-    }));
-    await supabase.from('report_assignments').insert(assignmentPayload);
+      department_id: deptIds[0]
+    });
 
     const report: Report = { ...newReport, timestamp: this.simStep };
     
-    finalDeptIds.forEach(id => {
-      const targetNode = this.root.findNode(id);
-      if (targetNode) {
-        if (report.status === 'ongoing') targetNode.ongoingReports.insertLast(report);
-        else targetNode.pendingReports.insertSortedByPriority(report, r => r.priority);
-      }
-    });
+    if (report.status === 'ongoing') node.ongoingReports.insertLast(report);
+    else node.pendingReports.insertSortedByPriority(report, r => r.priority);
 
-    this.undoStack.push({ type: 'FILE', reportId: report.id, toDeptId: primaryDeptId });
+    this.undoStack.push({ type: 'FILE', reportId: report.id, toDeptId: deptIds[0] });
     await this.logAction(report.id, 'FILE', userId);
     return report;
   }
 
   async resolveReport(reportId: string, userId: string) {
-    // Search for report in all departments
     let foundNode: DepartmentNode | null = null;
     let foundReport: Report | null = null;
 
-    // We can optimize this by storing a map or using BST, but for now DFS/Iterate
     const departments = this.getAllDepartmentNodes();
     for (const node of departments) {
       const result = node.findReport(reportId);
@@ -145,14 +116,11 @@ export class CrisisManager {
     if (!foundNode || !foundReport) return;
 
     this.simStep++;
-    
-    // Update DB
     await supabase.from('reports').update({ 
       status: 'resolved', 
       resolved_at: new Date().toISOString() 
     }).eq('id', reportId);
 
-    // Update Memory: Remove from ALL nodes that might have this report
     const allNodes = this.getAllDepartmentNodes();
     allNodes.forEach(node => {
       node.ongoingReports.removeValue(r => r.id === reportId);
@@ -161,15 +129,13 @@ export class CrisisManager {
     foundReport.status = 'resolved';
     foundNode.resolvedArchive.push(foundReport);
 
-    // Auto-promote
     let promotedId: string | null = null;
     if (!foundNode.pendingReports.isEmpty()) {
-      const nextReport = foundNode.pendingReports.toArray()[0]; // Highest priority
+      const nextReport = foundNode.pendingReports.toArray()[0];
       foundNode.pendingReports.removeNode(r => r.id === nextReport.id);
       nextReport.status = 'ongoing';
       foundNode.ongoingReports.insertLast(nextReport);
       promotedId = nextReport.id;
-
       await supabase.from('reports').update({ status: 'ongoing' }).eq('id', nextReport.id);
     }
 
@@ -184,26 +150,16 @@ export class CrisisManager {
   }
 
   async confirmResolution(reportId: string, userId: string) {
-    const { error } = await supabase.from('reports')
-      .update({ citizen_confirmed: true })
-      .eq('id', reportId)
-      .eq('created_by', userId);
-    
-    if (error) throw error;
+    await supabase.from('reports').update({ citizen_confirmed: true }).eq('id', reportId).eq('created_by', userId);
     await this.logAction(reportId, 'CONFIRM', userId);
   }
 
   async reopenReport(reportId: string, userId: string) {
-    const { error } = await supabase.from('reports')
-      .update({ 
-        status: 'ongoing', 
-        citizen_confirmed: false,
-        resolved_at: null 
-      })
-      .eq('id', reportId)
-      .eq('created_by', userId);
-    
-    if (error) throw error;
+    await supabase.from('reports').update({ 
+      status: 'ongoing', 
+      citizen_confirmed: false,
+      resolved_at: null 
+    }).eq('id', reportId).eq('created_by', userId);
     await this.logAction(reportId, 'REOPEN', userId);
   }
 
@@ -211,20 +167,33 @@ export class CrisisManager {
     const { data: report } = await supabase.from('reports').select('*').eq('id', reportId).single();
     if (!report) return;
 
-    const assignmentPayload = deptIds.map(id => ({
+    const allDepartments = this.getAllDepartmentNodes();
+    const finalDeptIds = new Set(deptIds);
+    
+    deptIds.forEach(id => {
+      const dNode = this.root.findNode(id);
+      if (dNode && (dNode.name_en.includes('Fire') || dNode.name_en.includes('Ambulance'))) {
+        const policeInDistrict = allDepartments.find(d => d.district_id === dNode.district_id && d.name_en.includes('Police'));
+        if (policeInDistrict) finalDeptIds.add(policeInDistrict.id);
+      }
+    });
+
+    const assignmentPayload = Array.from(finalDeptIds).map(id => ({
       report_id: reportId,
       department_id: id
     }));
 
-    await supabase.from('report_assignments').insert(assignmentPayload);
+    await supabase.from('report_assignments').upsert(assignmentPayload, { onConflict: 'report_id,department_id' });
 
-    // Update Memory
-    deptIds.forEach(id => {
+    finalDeptIds.forEach(id => {
       const node = this.root.findNode(id);
       if (node) {
-        const reportObj: Report = { ...report, timestamp: this.simStep };
-        if (report.status === 'ongoing') node.ongoingReports.insertLast(reportObj);
-        else node.pendingReports.insertSortedByPriority(reportObj, r => r.priority);
+        const result = node.findReport(reportId);
+        if (!result) {
+          const reportObj: Report = { ...report, timestamp: this.simStep };
+          if (report.status === 'ongoing') node.ongoingReports.insertLast(reportObj);
+          else node.pendingReports.insertSortedByPriority(reportObj, r => r.priority);
+        }
       }
     });
 
@@ -247,17 +216,12 @@ export class CrisisManager {
 
     if (!foundNode || !foundReport) return;
 
-    // Check if we can add more ongoing
     if (foundNode.ongoingReports.size() >= this.MAX_ONGOING) {
       throw new Error('Maximum ongoing reports reached for this department. Resolve others first.');
     }
 
     this.simStep++;
-    
-    // Update DB
     await supabase.from('reports').update({ status: 'ongoing' }).eq('id', reportId);
-
-    // Update Memory
     foundNode.pendingReports.removeNode(r => r.id === reportId);
     foundReport.status = 'ongoing';
     foundNode.ongoingReports.insertLast(foundReport);
@@ -275,12 +239,10 @@ export class CrisisManager {
       const pending = node.pendingReports.toArray();
       for (const report of pending) {
         if ((this.simStep - report.timestamp) > 3) {
-          // Find sibling district
           const siblingDistrictId = node.district_id === 1 ? 2 : 1;
           const siblingDept = departments.find(d => d.name_en === node.name_en && d.district_id === siblingDistrictId);
           
           if (siblingDept) {
-            // Move Report
             node.pendingReports.removeNode(r => r.id === report.id);
             report.district_id = siblingDistrictId;
             report.department_id = siblingDept.id;
@@ -350,10 +312,6 @@ export class CrisisManager {
   async undo(userId: string) {
     const action = this.undoStack.pop();
     if (!action) return;
-
-    // Logic to reverse actions...
-    // This is complex and needs careful implementation for each type.
-    // For brevity and focus on core, I'll implement basic reversal.
   }
 
   private autoDetectType(deptName: string): string {
