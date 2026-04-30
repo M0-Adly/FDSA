@@ -81,7 +81,7 @@ export class CrisisManager {
     this.simStep = count || 0;
   }
 
-  async fileReport(deptIds: number[], data: Partial<Report>, userId: string) {
+  async fileReport(deptIds: number[], data: Partial<Report> & { lat?: number; lng?: number }, userId: string) {
     if (deptIds.length === 0) return;
     const node = this.root.findNode(deptIds[0]);
     if (!node) return;
@@ -95,8 +95,10 @@ export class CrisisManager {
       type: type,
       description: data.description,
       priority: data.priority,
-      status: 'pending', // Forced to pending initially
-      created_by: userId
+      status: 'pending', 
+      created_by: userId,
+      lat: data.lat,
+      lng: data.lng
     }).select().single();
 
     if (error) throw error;

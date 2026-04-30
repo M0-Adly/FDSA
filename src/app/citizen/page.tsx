@@ -119,10 +119,29 @@ export default function CitizenDashboard() {
     if (!selectedDept || !user) return;
     setSubmitting(true);
     try {
+      let lat = undefined;
+      let lng = undefined;
+
+      // Get GPS Location
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+        });
+        lat = position.coords.latitude;
+        lng = position.coords.longitude;
+      } catch (err) {
+        console.warn("GPS access denied or timed out");
+      }
+
       const mgr = new CrisisManager();
       await mgr.initialize();
-      await mgr.fileReport([parseInt(selectedDept)], { description, priority: parseInt(priority.toString()) }, user.id);
-      setToast(t('success_submit'));
+      await mgr.fileReport(
+        [parseInt(selectedDept)], 
+        { description, priority: parseInt(priority.toString()), lat, lng }, 
+        user.id
+      );
+      
+      setToast(language === 'ar' ? 'تم إرسال البلاغ مع تحديد موقعك بنجاح' : 'Report submitted with GPS location');
       setTab('reports');
       setDescription('');
       fetchMyReports(user.id);

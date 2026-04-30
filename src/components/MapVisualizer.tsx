@@ -69,21 +69,60 @@ export function MapVisualizer({ rootNode }: any) {
             <CircleMarker
               key={dist.id}
               center={dist.pos as [number, number]}
-              radius={20 + (load.ongoing + load.pending) * 2}
-              pathOptions={{ fillColor: color, color: color, fillOpacity: 0.4, weight: 2 }}
+              radius={30 + (load.ongoing + load.pending) * 2}
+              pathOptions={{ fillColor: color, color: color, fillOpacity: 0.1, weight: 1, dashArray: '5, 5' }}
             >
               <Popup className="custom-popup">
                 <div className="bg-slate-900 p-2 rounded text-white border border-slate-700 shadow-xl">
                   <h4 className="font-bold border-b border-slate-700 pb-1 mb-2">{dist.name}</h4>
                   <div className="text-sm">
-                    <p className="text-blue-400">Ongoing: {load.ongoing}</p>
-                    <p className="text-amber-400">Pending: {load.pending}</p>
+                    <p className="text-blue-400">Total Active: {load.ongoing + load.pending}</p>
                   </div>
                 </div>
               </Popup>
             </CircleMarker>
           );
         })}
+
+        {/* Individual Report Markers */}
+        {(() => {
+          const markers: React.ReactNode[] = [];
+          const districts = rootNode?.children?.toArray() || [];
+          districts.forEach((dist: any) => {
+            dist.children.toArray().forEach((dept: any) => {
+              const allReports = [...dept.ongoingReports.toArray(), ...dept.pendingReports.toArray()];
+              allReports.forEach((r: any) => {
+                if (r.lat && r.lng) {
+                  markers.push(
+                    <CircleMarker
+                      key={r.id}
+                      center={[r.lat, r.lng]}
+                      radius={8}
+                      pathOptions={{ 
+                        fillColor: r.status === 'ongoing' ? '#3b82f6' : '#f59e0b', 
+                        color: '#fff', 
+                        fillOpacity: 0.8, 
+                        weight: 2 
+                      }}
+                    >
+                      <Popup>
+                        <div className="p-3 min-w-[150px] bg-slate-900 text-white rounded-lg">
+                          <h5 className="font-black border-b border-white/10 pb-1 mb-2 text-indigo-400 uppercase text-[10px]">{r.type}</h5>
+                          <p className="text-xs leading-relaxed opacity-80">{r.description}</p>
+                          <div className="mt-3 pt-2 border-t border-white/5 flex justify-between items-center">
+                            <span className={`text-[9px] font-black uppercase ${r.status === 'ongoing' ? 'text-blue-400' : 'text-amber-400'}`}>{r.status}</span>
+                            <span className="text-[9px] text-white/30">Priority: {r.priority}</span>
+                          </div>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  );
+                }
+              });
+            });
+          });
+          return markers;
+        })()}
       </MapContainer>
       
       {/* Custom styles for Leaflet popups in dark mode */}
