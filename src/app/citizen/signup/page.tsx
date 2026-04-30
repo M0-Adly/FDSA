@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { useLanguage } from '@/components/LanguageContext';
 
 export default function CitizenSignup() {
+  const { language } = useLanguage();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [nationalId, setNationalId] = useState('');
   const [password, setPassword] = useState('');
   const [idImage, setIdImage] = useState<File | null>(null);
   const [error, setError] = useState('');
@@ -17,6 +20,12 @@ export default function CitizenSignup() {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    if (!idImage) {
+      setError(language === 'ar' ? 'صورة البطاقة مطلوبة' : 'National ID image is required');
+      setLoading(false);
+      return;
+    }
 
     const email = `${phone.trim()}@citizen.eg`;
 
@@ -58,6 +67,7 @@ export default function CitizenSignup() {
         full_name: fullName,
         role: 'citizen',
         phone: phone.trim(),
+        national_id: nationalId.trim(),
       }, { onConflict: 'id' });
 
       // STEP 4: Upload ID image (optional)
@@ -164,8 +174,14 @@ export default function CitizenSignup() {
             </div>
 
             <div>
+              <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">National ID (14 Digits)</label>
+              <input required value={nationalId} onChange={e => setNationalId(e.target.value)}
+                placeholder="14-digit National ID" className="input-premium" minLength={14} maxLength={14} />
+            </div>
+
+            <div>
               <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
-                National ID — Front Side <span className="text-white/20">(Optional)</span>
+                National ID Image <span className="text-red-400">*</span>
               </label>
               <label className="flex flex-col items-center justify-center gap-2 w-full py-6 rounded-xl border-2 border-dashed border-white/15 hover:border-indigo-400/40 cursor-pointer transition bg-white/[0.02]">
                 <svg className="w-6 h-6 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>

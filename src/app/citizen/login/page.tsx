@@ -21,6 +21,13 @@ export default function CitizenLogin() {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw new Error(signInError.message);
       if (!data?.user) throw new Error('Login failed');
+
+      const { data: profile } = await supabase.from('profiles').select('account_status').eq('id', data.user.id).single();
+      if (profile && (profile.account_status === 'suspended' || profile.account_status === 'rejected')) {
+        await supabase.auth.signOut();
+        throw new Error(profile.account_status === 'suspended' ? 'حسابك موقوف مؤقتاً. راجع الإدارة.' : 'تم رفض حسابك أو حذفه.');
+      }
+
       window.location.replace('/citizen');
     } catch (err: any) {
       console.error('Login error:', err);

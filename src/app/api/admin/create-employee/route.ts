@@ -15,7 +15,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create admin client lazily inside the route handler (not at module level)
     const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
       auth: {
         autoRefreshToken: false,
@@ -48,6 +47,7 @@ export async function POST(req: Request) {
         role: role || 'employee',
         full_name: fullName,
         employee_id: employeeId,
+        account_status: 'approved',
       });
 
     if (profileError) throw profileError;
