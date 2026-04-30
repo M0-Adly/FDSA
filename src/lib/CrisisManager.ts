@@ -78,7 +78,7 @@ export class CrisisManager {
       type: type,
       description: data.description,
       priority: data.priority,
-      status: node.ongoingReports.size() < this.MAX_ONGOING ? 'ongoing' : 'pending',
+      status: 'pending', // Forced to pending initially
       created_by: userId
     }).select().single();
 
@@ -91,8 +91,8 @@ export class CrisisManager {
 
     const report: Report = { ...newReport, timestamp: this.simStep };
     
-    if (report.status === 'ongoing') node.ongoingReports.insertLast(report);
-    else node.pendingReports.insertSortedByPriority(report, r => r.priority);
+    // Always insert into pending list for new reports
+    node.pendingReports.insertSortedByPriority(report, r => r.priority);
 
     this.undoStack.push({ type: 'FILE', reportId: report.id, toDeptId: deptIds[0] });
     await this.logAction(report.id, 'FILE', userId);
