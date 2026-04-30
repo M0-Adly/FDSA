@@ -13,11 +13,7 @@ const LocationFlyer = ({ location }: { location: [number, number] | null }) => {
   const [map, setMap] = useState<any>(null);
 
   useEffect(() => {
-    // Only import and use map on client side
-    import('react-leaflet').then(({ useMap }) => {
-      // This is still tricky because useMap is a hook.
-      // Better to use a different approach.
-    });
+    // Logic moved to parent component using ref
   }, []);
 
   return null;
