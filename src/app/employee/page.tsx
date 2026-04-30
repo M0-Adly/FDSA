@@ -7,8 +7,9 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { CrisisManager } from '@/lib/CrisisManager';
 import { useLanguage } from '@/components/LanguageContext';
-import { TreeVisualizer } from '@/components/TreeVisualizer';
-import { MapVisualizer } from '@/components/MapVisualizer';
+import dynamic from 'next/dynamic';
+const MapVisualizer = dynamic(() => import('@/components/MapVisualizer').then(mod => mod.MapVisualizer), { ssr: false });
+const TreeVisualizer = dynamic(() => import('@/components/TreeVisualizer').then(mod => mod.TreeVisualizer), { ssr: false });
 
 export default function EmployeeDashboard() {
   const { t, language } = useLanguage();
