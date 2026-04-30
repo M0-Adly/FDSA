@@ -3,12 +3,12 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
+import nextDynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 import { CrisisManager } from '@/lib/CrisisManager';
 import { useLanguage } from '@/components/LanguageContext';
 
-const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false });
+const MapPicker = nextDynamic(() => import('@/components/MapPicker'), { ssr: false });
 
 interface Report {
   id: string;
