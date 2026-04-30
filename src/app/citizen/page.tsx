@@ -53,10 +53,21 @@ export default function CitizenDashboard() {
       setUser(session.user);
       
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-      if (profileData) setProfile(profileData);
+      if (profileData) {
+        setProfile(profileData);
+      } else {
+        // Fallback: create profile if missing (helps with debug)
+        await supabase.from('profiles').upsert({
+          id: session.user.id,
+          full_name: session.user.user_metadata?.full_name || 'Citizen',
+          phone: session.user.user_metadata?.phone || '',
+          role: 'citizen'
+        });
+      }
 
       fetchMyReports(session.user.id);
-    } catch {
+    } catch (err) {
+      console.error(err);
       window.location.replace('/citizen/login');
     }
   };
@@ -86,7 +97,6 @@ export default function CitizenDashboard() {
     try {
       const mgr = new CrisisManager();
       await mgr.initialize();
-      // Send as array with one ID to match updated CrisisManager signature
       await mgr.fileReport([parseInt(selectedDept)], {
         description,
         priority: parseInt(priority.toString())
@@ -106,22 +116,6 @@ export default function CitizenDashboard() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':   return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
-      case 'ongoing':   return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-      case 'resolved':  return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
-      case 'escalated': return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
-      default:          return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
-    }
-  };
-
-  const getPriorityColor = (p: number) => {
-    if (p >= 4) return 'text-red-400';
-    if (p === 3) return 'text-amber-400';
-    return 'text-blue-400';
-  };
-
   const filteredReports = reports.filter(r => {
     if (statusFilter === 'All') return true;
     if (statusFilter === 'Active') return r.status === 'pending' || r.status === 'ongoing';
@@ -139,16 +133,44 @@ export default function CitizenDashboard() {
     </div>
   );
 
+  const isApproved = profile?.account_status === 'approved';
+
   return (
     <>
+      {/* Account Status Banner */}
+      {profile && (
+        <div className={`mb-6 p-4 rounded-2xl border flex items-center justify-between shadow-lg animate-fade-in ${
+          profile.account_status === 'approved' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+          profile.account_status === 'pending' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+          'bg-red-500/10 border-red-500/20 text-red-400'
+        }`}>
+          <div className="flex items-center gap-3">
+            <span className="text-xl">
+              {profile.account_status === 'approved' ? '✅' : profile.account_status === 'pending' ? '⏳' : '❌'}
+            </span>
+            <div>
+              <p className="text-sm font-black uppercase tracking-wider">
+                {language === 'ar' ? 'حالة الحساب' : 'Account Status'}
+              </p>
+              <p className="text-xs opacity-70">
+                {profile.account_status === 'approved' ? (language === 'ar' ? 'حسابك مفعل وجاهز للاستخدام' : 'Account active and ready') :
+                 profile.account_status === 'pending' ? (language === 'ar' ? 'حسابك قيد المراجعة حالياً من قبل الإدارة' : 'Account currently under review') :
+                 (language === 'ar' ? 'تم رفض حسابك، يرجى مراجعة الإدارة' : 'Account rejected, contact admin')}
+              </p>
+            </div>
+          </div>
+          {profile.account_status === 'pending' && <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
+        </div>
+      )}
+
       <div className="mb-8 animate-fade-in">
         <h1 className="text-3xl font-black">
-          {t('welcome')}, <span className="text-indigo-400">{profile?.full_name || user?.email?.replace('@citizen.eg', '') || 'Citizen'}</span>
+          {t('welcome')}, <span className="text-indigo-400">{profile?.full_name || 'Citizen'}</span>
         </h1>
         <p className="text-white/30 text-sm mt-1">{t('citizen_access')}.</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         {[
           { label: t('total_reports'), value: reports.length, color: 'indigo', icon: '📋' },
           { label: t('ongoing'), value: reports.filter(r => r.status === 'ongoing').length, color: 'blue', icon: '🔵' },
@@ -163,19 +185,20 @@ export default function CitizenDashboard() {
       </div>
 
       <div className="flex gap-1 p-1 bg-white/5 rounded-2xl border border-white/10 mb-6 w-fit">
-        {[
-          { key: 'reports' as const, label: t('my_reports'), icon: '📄' },
-          { key: 'submit' as const, label: t('new_report'), icon: '📝', disabled: profile?.account_status !== 'approved' },
-        ].map(({ key, label, icon, disabled }) => (
-          <button key={key} onClick={() => !disabled && setTab(key)}
-            disabled={disabled}
-            className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              disabled ? 'opacity-50 cursor-not-allowed text-white/20' : 
-              tab === key ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'
-            }`}>
-            <span>{icon}</span>{label}
-          </button>
-        ))}
+        <button onClick={() => setTab('reports')}
+          className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            tab === 'reports' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'
+          }`}>
+          <span>📄</span>{t('my_reports')}
+        </button>
+        <button onClick={() => isApproved && setTab('submit')}
+          disabled={!isApproved}
+          className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            !isApproved ? 'opacity-30 cursor-not-allowed' :
+            tab === 'submit' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'
+          }`}>
+          <span>📝</span>{t('new_report')}
+        </button>
       </div>
 
       <div className="animate-fade-in">
@@ -222,7 +245,7 @@ export default function CitizenDashboard() {
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <div className="flex items-center gap-4">
                       {report.status === 'resolved' && !report.citizen_confirmed && (
                         <div className="flex gap-2">
                           <button onClick={() => {
@@ -235,7 +258,7 @@ export default function CitizenDashboard() {
                           }} className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-xs font-bold">{t('not_fixed')}</button>
                         </div>
                       )}
-                      <div className="text-right px-3">
+                      <div className="text-right">
                         <p className="font-black text-white/60">P{report.priority}</p>
                       </div>
                     </div>
