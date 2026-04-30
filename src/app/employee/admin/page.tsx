@@ -31,22 +31,35 @@ export default function AdminPanel() {
     checkUserRole();
   }, []);
 
-  useEffect(() => {
-    if (currentUser?.role === 'admin') {
-      if (activeTab === 'citizens') fetchCitizens();
-      if (activeTab === 'staff_list') fetchEmployees();
-    } else {
-      if (activeTab === 'citizens') fetchCitizens();
-    }
-  }, [activeTab, currentUser]);
-
   const checkUserRole = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { window.location.replace('/employee/login'); return; }
-    
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-    setCurrentUser(profile);
-    setLoadingRole(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { window.location.replace('/employee/login'); return; }
+      
+      // Force fetch the latest profile directly from DB to avoid any caching
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      
+      if (error) console.error('Error fetching role:', error);
+      
+      setCurrentUser(profile);
+      setLoadingRole(false);
+      
+      // Default to staff_list if admin
+      if (profile?.role === 'admin') {
+        setActiveTab('staff_list');
+        fetchCitizens();
+        fetchEmployees();
+      } else {
+        fetchCitizens();
+      }
+    } catch (err) {
+      console.error(err);
+      setLoadingRole(false);
+    }
   };
 
   const fetchCitizens = async () => {
@@ -76,6 +89,8 @@ export default function AdminPanel() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setMsg({ type: '', text: '' });
+    
     const res = await fetch('/api/admin/create-employee', {
       method: 'POST',
       body: JSON.stringify({ employeeId: empId, fullName: name, password })
@@ -91,30 +106,51 @@ export default function AdminPanel() {
     }
   };
 
-  if (loadingRole) return <div className="p-20 text-center text-white/20">Verifying Authority...</div>;
+  if (loadingRole) return <div className="p-20 text-center text-white/20 font-black tracking-widest animate-pulse">VERIFYING ACCESS PRIVILEGES...</div>;
 
   const isAdmin = currentUser?.role === 'admin';
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#080c1a] p-4 md:p-8">
       
-      {/* Header */}
-      <div className="mb-8 flex justify-between items-center">
+      {/* Header with Role Badge */}
+      <div className="mb-8 flex justify-between items-center bg-white/5 p-6 rounded-[2rem] border border-white/10">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-500/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center text-indigo-400 font-black">
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black shadow-2xl ${
+            isAdmin ? 'bg-indigo-600 text-white shadow-indigo-500/20' : 'bg-emerald-600 text-white shadow-emerald-500/20'
+          }`}>
             {isAdmin ? 'AD' : 'EM'}
           </div>
           <div>
-            <h1 className="text-2xl font-black text-white">{isAdmin ? 'لوحة الإدارة العليا' : 'بوابة الموظف الموحدة'}</h1>
-            <p className="text-white/20 text-[10px] uppercase tracking-widest font-bold">National Security Console</p>
+            <h1 className="text-2xl font-black text-white">{isAdmin ? 'لوحة الإدارة العليا' : 'بوابة العمليات'}</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-tighter ${isAdmin ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                {isAdmin ? 'System Administrator' : 'Field Employee'}
+              </span>
+              <span className="text-white/20 text-[9px] font-mono">ID: {currentUser?.id?.substring(0,8)}</span>
+            </div>
           </div>
         </div>
-        <button onClick={() => window.location.replace('/employee/admin/records')} className="px-4 py-2 bg-white/5 text-white/40 border border-white/10 rounded-xl text-xs font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">
-          {t('system_records')}
-        </button>
+        
+        <div className="flex gap-3">
+          <button onClick={() => window.location.replace('/employee/admin/records')} className="px-5 py-2.5 bg-white/5 text-white/40 border border-white/10 rounded-xl text-xs font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">
+            سجلات النظام
+          </button>
+          <button onClick={() => { supabase.auth.signOut().then(() => window.location.replace('/employee/login')); }} className="px-5 py-2.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-xs font-black uppercase hover:bg-red-500 hover:text-white transition-all">
+            خروج
+          </button>
+        </div>
       </div>
 
-      {/* Tabs - Only show Staff tabs to Admin */}
+      {/* Security Check Alert for Users */}
+      {!isAdmin && (
+        <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center gap-3 text-amber-400 text-xs font-bold">
+          <span>⚠️</span>
+          {language === 'ar' ? 'تنبيه: أنت داخل بحساب موظف، صلاحيات الإدارة العليا مخفية.' : 'Warning: You are logged in as an employee. Admin tools are restricted.'}
+        </div>
+      )}
+
+      {/* Tabs */}
       <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
         <button onClick={() => setActiveTab('citizens')} className={`px-6 py-3 rounded-2xl text-xs font-black transition-all whitespace-nowrap ${activeTab === 'citizens' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}>
           👤 إدارة المواطنين
@@ -136,8 +172,13 @@ export default function AdminPanel() {
         {activeTab === 'citizens' && (
           <div className="flex h-full flex-col md:flex-row gap-6">
             <div className="w-full md:w-1/3 flex flex-col bg-white/5 border border-white/10 rounded-3xl overflow-hidden">
-              <div className="p-4 border-b border-white/10 bg-black/20">
+              <div className="p-4 border-b border-white/10 bg-black/20 space-y-3">
                 <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث..." className="input-premium" />
+                <div className="flex gap-1 overflow-x-auto pb-1">
+                  {(['all', 'pending', 'approved', 'suspended', 'rejected'] as const).map(s => (
+                    <button key={s} onClick={() => setStatusFilter(s)} className={`px-2 py-1 rounded-md text-[9px] font-black uppercase ${statusFilter === s ? 'bg-indigo-600 text-white' : 'bg-white/5 text-white/30'}`}>{s}</button>
+                  ))}
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
                 {handleSearch().map(c => (
@@ -154,20 +195,10 @@ export default function AdminPanel() {
               {selectedCitizen ? (
                 <div>
                   <h2 className="text-2xl font-black text-white mb-4">{selectedCitizen.full_name}</h2>
-                  {/* Actions for Citizens */}
                   <div className="flex gap-2 mb-8">
-                    <button onClick={async () => {
-                      await supabase.from('profiles').update({ account_status: 'approved' }).eq('id', selectedCitizen.id);
-                      fetchCitizens(); setSelectedCitizen({...selectedCitizen, account_status: 'approved'});
-                    }} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase">قبول</button>
-                    <button onClick={async () => {
-                      await supabase.from('profiles').update({ account_status: 'rejected' }).eq('id', selectedCitizen.id);
-                      fetchCitizens(); setSelectedCitizen({...selectedCitizen, account_status: 'rejected'});
-                    }} className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-[10px] font-black uppercase">رفض</button>
-                    <button onClick={async () => {
-                      await supabase.from('profiles').update({ account_status: 'suspended' }).eq('id', selectedCitizen.id);
-                      fetchCitizens(); setSelectedCitizen({...selectedCitizen, account_status: 'suspended'});
-                    }} className="px-4 py-2 bg-amber-600/20 text-amber-400 border border-amber-600/30 rounded-xl text-[10px] font-black uppercase">إيقاف</button>
+                    <button onClick={async () => { await supabase.from('profiles').update({ account_status: 'approved' }).eq('id', selectedCitizen.id); fetchCitizens(); setSelectedCitizen({...selectedCitizen, account_status: 'approved'}); }} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase">قبول</button>
+                    <button onClick={async () => { await supabase.from('profiles').update({ account_status: 'rejected' }).eq('id', selectedCitizen.id); fetchCitizens(); setSelectedCitizen({...selectedCitizen, account_status: 'rejected'}); }} className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-xl text-[10px] font-black uppercase">رفض</button>
+                    <button onClick={async () => { await supabase.from('profiles').update({ account_status: 'suspended' }).eq('id', selectedCitizen.id); fetchCitizens(); setSelectedCitizen({...selectedCitizen, account_status: 'suspended'}); }} className="px-4 py-2 bg-amber-600/20 text-amber-400 border border-amber-600/30 rounded-xl text-[10px] font-black uppercase">إيقاف</button>
                   </div>
                   {selectedCitizen.national_id_image_url && <img src={selectedCitizen.national_id_image_url} className="w-full max-w-lg rounded-2xl border border-white/10" />}
                 </div>
@@ -179,30 +210,21 @@ export default function AdminPanel() {
         {isAdmin && activeTab === 'staff_list' && (
           <div className="h-full bg-white/5 border border-white/10 rounded-3xl overflow-hidden flex flex-col">
             <div className="p-6 border-b border-white/10 bg-black/20 flex justify-between items-center">
-              <h2 className="font-black text-white uppercase tracking-wider">قائمة الموظفين والضباط</h2>
-              <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="بحث عن موظف..." className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white" />
+              <h2 className="font-black text-white uppercase tracking-wider">إدارة فريق العمل</h2>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {handleSearch().map(emp => (
-                  <div key={emp.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl group hover:border-emerald-500/30 transition-all">
+                  <div key={emp.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl">
                     <div className="flex justify-between items-start mb-3">
                       <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-bold">{emp.employee_id}</div>
-                      <span className="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-[8px] font-black uppercase tracking-widest">{emp.account_status}</span>
+                      <span className="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-[8px] font-black uppercase">{emp.account_status}</span>
                     </div>
-                    <h4 className="font-black text-white/90 text-sm">{emp.full_name || 'Incomplete Profile'}</h4>
-                    <p className="text-[10px] text-white/30 mt-1 font-mono">{emp.phone || 'No phone'}</p>
+                    <h4 className="font-black text-white/90 text-sm">{emp.full_name || 'بروفايل غير مكتمل'}</h4>
+                    <p className="text-[10px] text-white/30 mt-1">{emp.phone || 'بدون هاتف'}</p>
                     <div className="mt-4 pt-4 border-t border-white/5 flex gap-2">
-                      <button onClick={async () => {
-                        await supabase.from('profiles').update({ account_status: 'suspended' }).eq('id', emp.id);
-                        fetchEmployees();
-                      }} className="flex-1 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-[9px] font-black uppercase">إيقاف</button>
-                      <button onClick={async () => {
-                        if(confirm('حذف نهائي؟')) {
-                          await supabase.from('profiles').delete().eq('id', emp.id);
-                          fetchEmployees();
-                        }
-                      }} className="flex-1 py-1.5 bg-white/5 text-white/30 rounded-lg text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">حذف</button>
+                      <button onClick={async () => { await supabase.from('profiles').update({ account_status: 'suspended' }).eq('id', emp.id); fetchEmployees(); }} className="flex-1 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-[9px] font-black uppercase">إيقاف</button>
+                      <button onClick={async () => { if(confirm('حذف نهائي؟')) { await supabase.from('profiles').delete().eq('id', emp.id); fetchEmployees(); } }} className="flex-1 py-1.5 bg-white/5 text-white/30 rounded-lg text-[9px] font-black uppercase">حذف</button>
                     </div>
                   </div>
                 ))}
@@ -212,13 +234,13 @@ export default function AdminPanel() {
         )}
 
         {isAdmin && activeTab === 'staff' && (
-          <div className="max-w-md mx-auto bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl">
-            <h2 className="text-xl font-black text-white mb-6 uppercase tracking-wider">➕ إضافة حساب حكومي جديد</h2>
+          <div className="max-w-md mx-auto bg-white/5 border border-white/10 rounded-3xl p-8">
+            <h2 className="text-xl font-black text-white mb-6 uppercase tracking-wider">إضافة موظف جديد</h2>
             <form onSubmit={handleCreate} className="space-y-4">
-              <input type="text" required value={empId} onChange={e => setEmpId(e.target.value)} className="input-premium" placeholder="رقم الموظف (ID)" />
-              <input type="text" required value={name} onChange={e => setName(e.target.value)} className="input-premium" placeholder="الاسم الكامل" />
-              <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="input-premium" placeholder="كلمة المرور" />
-              <button disabled={loading} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase shadow-lg shadow-emerald-500/20 active:scale-95">
+              <input type="text" required value={empId} onChange={e => setEmpId(e.target.value)} className="input-premium" placeholder="ID" />
+              <input type="text" required value={name} onChange={e => setName(e.target.value)} className="input-premium" placeholder="Full Name" />
+              <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="input-premium" placeholder="Password" />
+              <button disabled={loading} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase">
                 {loading ? '...' : 'اعتماد الحساب'}
               </button>
               {msg.text && <p className={`text-xs text-center mt-4 font-bold ${msg.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>{msg.text}</p>}
