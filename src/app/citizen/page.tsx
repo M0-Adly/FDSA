@@ -7,11 +7,10 @@ import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 import { CrisisManager } from '@/lib/CrisisManager';
 import { useLanguage } from '@/components/LanguageContext';
-import 'leaflet/dist/leaflet.css';
 
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
-const Marker = dynamic(() => import('react-leaflet').then(m => m.Marker), { ssr: false });
+const CircleMarker = dynamic(() => import('react-leaflet').then(m => m.CircleMarker), { ssr: false });
 const useMapEvents = dynamic(() => import('react-leaflet').then(m => m.useMapEvents), { ssr: false });
 
 function MapClickHandler({ onClick }: { onClick: (latlng: any) => void }) {
@@ -391,10 +390,11 @@ export default function CitizenDashboard() {
                         >
                           <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
                           <MapClickHandler onClick={(latlng) => setManualLocation([latlng.lat, latlng.lng])} />
-                          {manualLocation && <Marker position={manualLocation} />}
+                          {manualLocation && <CircleMarker center={manualLocation} radius={10} pathOptions={{ fillColor: '#ef4444', color: '#fff', weight: 2, fillOpacity: 0.9 }} />}
                         </MapContainer>
                       </div>
                       <p className="text-[10px] text-white/40 italic text-center">
+                        {/* Build Trigger: 2026-04-30-v3 */}
                         {language === 'ar' ? 'اضغط على الخريطة لتحديد مكان المشكلة بالضبط' : 'Click on the map to set the exact location'}
                       </p>
                       {manualLocation && (
