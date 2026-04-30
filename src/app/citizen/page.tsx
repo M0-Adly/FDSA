@@ -8,17 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { CrisisManager } from '@/lib/CrisisManager';
 import { useLanguage } from '@/components/LanguageContext';
 
-const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
-const CircleMarker = dynamic(() => import('react-leaflet').then(m => m.CircleMarker), { ssr: false });
-const useMapEvents = dynamic(() => import('react-leaflet').then(m => m.useMapEvents), { ssr: false });
-
-function MapClickHandler({ onClick }: { onClick: (latlng: any) => void }) {
-  const map = useMapEvents({
-    click: (e) => onClick(e.latlng),
-  });
-  return null;
-}
+const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false });
 
 interface Report {
   id: string;
@@ -382,19 +372,12 @@ export default function CitizenDashboard() {
 
                   {showMapPicker && (
                     <div className="mt-4 space-y-4">
-                      <div className="h-60 rounded-xl overflow-hidden border border-white/10 relative z-10">
-                        <MapContainer 
-                          center={[24.0889, 32.8998]} 
-                          zoom={13} 
-                          style={{ height: '100%', width: '100%' }}
-                        >
-                          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                          <MapClickHandler onClick={(latlng) => setManualLocation([latlng.lat, latlng.lng])} />
-                          {manualLocation && <CircleMarker center={manualLocation} radius={10} pathOptions={{ fillColor: '#ef4444', color: '#fff', weight: 2, fillOpacity: 0.9 }} />}
-                        </MapContainer>
-                      </div>
+                      <MapPicker 
+                        onLocationSelect={(coords: [number, number]) => setManualLocation(coords)} 
+                        selectedLocation={manualLocation} 
+                      />
                       <p className="text-[10px] text-white/40 italic text-center">
-                        {/* Build Trigger: 2026-04-30-v3 */}
+                        {/* Build Trigger: 2026-04-30-v4 */}
                         {language === 'ar' ? 'اضغط على الخريطة لتحديد مكان المشكلة بالضبط' : 'Click on the map to set the exact location'}
                       </p>
                       {manualLocation && (

@@ -11,36 +11,31 @@ const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), 
 const CircleMarker = dynamic(() => import('react-leaflet').then(m => m.CircleMarker), { ssr: false });
 const Popup = dynamic(() => import('react-leaflet').then(m => m.Popup), { ssr: false });
 
-// Helper component to hook into the map instance and fly to locations
-function MapFocuser({ location }: { location: [number, number] | null }) {
+// Separate component for location flying to avoid top-level useMap import
+const LocationFlyer = ({ location }: { location: [number, number] | null }) => {
   const [map, setMap] = useState<any>(null);
-  
+
   useEffect(() => {
-    let m;
-    import('react-leaflet').then(leaflet => {
-      try { m = leaflet.useMap(); } catch(e){}
+    // Only import and use map on client side
+    import('react-leaflet').then(({ useMap }) => {
+      // This is still tricky because useMap is a hook.
+      // Better to use a different approach.
     });
   }, []);
-  
-  // Actually, a better way without dynamic useMap in NextJS is to just use standard import
+
   return null;
-}
+};
 
-// We will use standard useMap inside a dynamic component wrapper instead if needed, 
-// but let's just import useMap directly because MapVisualizer is only rendered client-side anyway
-import { useMap } from 'react-leaflet';
-
-function LocationFlyer({ location }: { location: [number, number] | null }) {
-  const map = useMap();
-  useEffect(() => {
-    if (location && map) {
-      map.flyTo(location, 16, { animate: true, duration: 1.5 });
-    }
-  }, [location, map]);
-  return null;
-}
-
+// COMPONENT REFACTORED TO BE SSR-SAFE
 export function MapVisualizer({ rootNode, focusedLocation }: any) {
+  const [map, setMap] = useState<any>(null);
+
+  useEffect(() => {
+    if (focusedLocation && map) {
+      map.flyTo(focusedLocation, 16, { animate: true, duration: 1.5 });
+    }
+  }, [focusedLocation, map]);
+
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -84,12 +79,12 @@ export function MapVisualizer({ rootNode, focusedLocation }: any) {
         zoom={14} 
         style={{ height: '100%', width: '100%', background: '#080c1a' }}
         zoomControl={false}
+        ref={setMap}
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
         />
-        <LocationFlyer location={focusedLocation} />
         
         {districtsData.map(dist => {
           const load = getDistrictLoad(dist.id);
