@@ -11,7 +11,36 @@ const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), 
 const CircleMarker = dynamic(() => import('react-leaflet').then(m => m.CircleMarker), { ssr: false });
 const Popup = dynamic(() => import('react-leaflet').then(m => m.Popup), { ssr: false });
 
-export function MapVisualizer({ rootNode }: any) {
+// Helper component to hook into the map instance and fly to locations
+function MapFocuser({ location }: { location: [number, number] | null }) {
+  const [map, setMap] = useState<any>(null);
+  
+  useEffect(() => {
+    let m;
+    import('react-leaflet').then(leaflet => {
+      try { m = leaflet.useMap(); } catch(e){}
+    });
+  }, []);
+  
+  // Actually, a better way without dynamic useMap in NextJS is to just use standard import
+  return null;
+}
+
+// We will use standard useMap inside a dynamic component wrapper instead if needed, 
+// but let's just import useMap directly because MapVisualizer is only rendered client-side anyway
+import { useMap } from 'react-leaflet';
+
+function LocationFlyer({ location }: { location: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (location && map) {
+      map.flyTo(location, 16, { animate: true, duration: 1.5 });
+    }
+  }, [location, map]);
+  return null;
+}
+
+export function MapVisualizer({ rootNode, focusedLocation }: any) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -60,6 +89,7 @@ export function MapVisualizer({ rootNode }: any) {
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
         />
+        <LocationFlyer location={focusedLocation} />
         
         {districtsData.map(dist => {
           const load = getDistrictLoad(dist.id);
@@ -97,11 +127,11 @@ export function MapVisualizer({ rootNode }: any) {
                     <CircleMarker
                       key={r.id}
                       center={[r.lat, r.lng]}
-                      radius={8}
+                      radius={10}
                       pathOptions={{ 
-                        fillColor: r.status === 'ongoing' ? '#3b82f6' : '#f59e0b', 
+                        fillColor: '#ef4444', 
                         color: '#fff', 
-                        fillOpacity: 0.8, 
+                        fillOpacity: 0.9, 
                         weight: 2 
                       }}
                     >

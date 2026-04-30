@@ -40,11 +40,14 @@ export default function CitizenDashboard() {
   const [resubmitID, setResubmitID] = useState('');
   const [resubmitFile, setResubmitFile] = useState<File | null>(null);
 
+  const [includeGps, setIncludeGps] = useState(false);
+
   useEffect(() => {
     checkAuth();
     fetchDistricts();
   }, []);
 
+  // ... (keeping fetch methods unchanged)
   useEffect(() => {
     if (selectedDistrict) {
       fetchDepartments(parseInt(selectedDistrict));
@@ -127,15 +130,17 @@ export default function CitizenDashboard() {
         let lat = undefined;
         let lng = undefined;
 
-        // Get GPS Location
-        try {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
-          });
-          lat = position.coords.latitude;
-          lng = position.coords.longitude;
-        } catch (err) {
-          console.warn("GPS access denied or timed out");
+        if (includeGps) {
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, enableHighAccuracy: true });
+            });
+            lat = position.coords.latitude;
+            lng = position.coords.longitude;
+          } catch (err) {
+            console.warn("GPS access denied or timed out");
+            showToast(language === 'ar' ? 'فشل تحديد الموقع الجغرافي' : 'Failed to get GPS location');
+          }
         }
 
         const mgr = new CrisisManager();
@@ -317,7 +322,21 @@ export default function CitizenDashboard() {
                 <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">{language === 'ar' ? 'وصف المشكلة' : 'Description'}</label>
                 <textarea required rows={5} value={description} onChange={e => setDescription(e.target.value)} className="input-premium resize-none" placeholder={language === 'ar' ? 'اشرح ما حدث بالتفصيل...' : 'Details...'} />
               </div>
-              <button type="submit" disabled={submitting} className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-500/30 active:scale-95 disabled:opacity-50">
+
+              <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-2xl">
+                <input 
+                  type="checkbox" 
+                  id="includeGps" 
+                  checked={includeGps} 
+                  onChange={e => setIncludeGps(e.target.checked)}
+                  className="w-5 h-5 rounded border-white/20 bg-black/20 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-gray-900"
+                />
+                <label htmlFor="includeGps" className="text-sm font-bold text-white/80 cursor-pointer flex-1">
+                  {language === 'ar' ? 'إرفاق موقعي الحالي بدقة (GPS) 📍' : 'Include my current GPS location 📍'}
+                </label>
+              </div>
+
+              <button type="submit" disabled={submitting} className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-500/30 active:scale-95 disabled:opacity-50 mt-4">
                 {submitting ? '...' : language === 'ar' ? 'إرسال البلاغ الآن' : 'Submit Report'}
               </button>
             </form>

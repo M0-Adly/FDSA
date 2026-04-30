@@ -17,6 +17,7 @@ export default function EmployeeDashboard() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [focusedLocation, setFocusedLocation] = useState<[number, number] | null>(null);
   
   // Profile completion states
   const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
@@ -299,9 +300,16 @@ export default function EmployeeDashboard() {
                                   <h4 className="text-lg font-black text-white">{r.type}</h4>
                                   <span className="text-[10px] text-white/30 font-mono mt-1 block">ID: {r.id.substring(0,8)}</span>
                                 </div>
-                                <button onClick={async () => { await manager.resolveReport(r.id, user.id); window.location.reload(); }} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 active:scale-95 transition-all">
-                                  إنهاء البلاغ (Resolve)
-                                </button>
+                                <div className="flex flex-col gap-2">
+                                  <button onClick={async () => { await manager.resolveReport(r.id, user.id); window.location.reload(); }} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 active:scale-95 transition-all">
+                                    إنهاء البلاغ (Resolve)
+                                  </button>
+                                  {r.lat && r.lng && (
+                                    <button onClick={() => { setFocusedLocation([r.lat, r.lng]); setSelectedNode(null); }} className="px-5 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">
+                                      موقع المشكلة 📍
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-sm text-white/60 leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5">{r.description}</p>
                             </div>
@@ -333,9 +341,16 @@ export default function EmployeeDashboard() {
                                   <h4 className="text-lg font-black text-white">{r.type}</h4>
                                   <span className="px-2 py-0.5 mt-2 inline-block bg-red-500/10 text-red-400 rounded text-[9px] font-black border border-red-500/20">أولوية: {r.priority}</span>
                                 </div>
-                                <button onClick={async () => { await manager.startResponse(r.id, user.id); window.location.reload(); }} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-blue-600/20 hover:bg-blue-500 active:scale-95 transition-all">
-                                  بدء الاستجابة
-                                </button>
+                                <div className="flex flex-col gap-2">
+                                  <button onClick={async () => { await manager.startResponse(r.id, user.id); window.location.reload(); }} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-blue-600/20 hover:bg-blue-500 active:scale-95 transition-all">
+                                    بدء الاستجابة
+                                  </button>
+                                  {r.lat && r.lng && (
+                                    <button onClick={() => { setFocusedLocation([r.lat, r.lng]); setSelectedNode(null); }} className="px-5 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">
+                                      موقع المشكلة 📍
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-sm text-white/60 leading-relaxed line-clamp-2">{r.description}</p>
                             </div>
@@ -360,7 +375,7 @@ export default function EmployeeDashboard() {
                <div className="flex-1 relative border-b border-white/10">
                  {/* Decorative Map overlay shadow */}
                  <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)] z-10 pointer-events-none"></div>
-                 <MapVisualizer rootNode={manager.root} />
+                 <MapVisualizer rootNode={manager.root} focusedLocation={focusedLocation} />
                </div>
                
                <div className="h-[35%] min-h-[300px] bg-black/40">
