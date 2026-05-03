@@ -196,20 +196,20 @@ INSERT INTO public.districts (id, name_en, name_ar) VALUES
   (2, 'Second District', 'الحي الثاني')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.departments (name_en, name_ar, district_id) VALUES
-  ('Fire Dept',       'المطافئ',       1),
-  ('Police Dept',     'الشرطة',        1),
-  ('Ambulance',       'الإسعاف',       1),
-  ('Water Co.',       'شركة المياه',   1),
-  ('Electricity Co.', 'شركة الكهرباء', 1),
-  ('Gas Co.',         'شركة الغاز',    1),
-  ('Fire Dept',       'المطافئ',       2),
-  ('Police Dept',     'الشرطة',        2),
-  ('Ambulance',       'الإسعاف',       2),
-  ('Water Co.',       'شركة المياه',   2),
-  ('Electricity Co.', 'شركة الكهرباء', 2),
-  ('Gas Co.',         'شركة الغاز',    2)
-ON CONFLICT DO NOTHING;
+INSERT INTO public.departments (name_en, name_ar, district_id, total_units) VALUES
+  ('Fire Dept',       'المطافئ',       1, 15),
+  ('Police Dept',     'الشرطة',        1, 20),
+  ('Ambulance',       'الإسعاف',       1, 12),
+  ('Water Co.',       'شركة المياه',   1, 8),
+  ('Electricity Co.', 'شركة الكهرباء', 1, 8),
+  ('Gas Co.',         'طوارئ الغاز',    1, 6),
+  ('Fire Dept',       'المطافئ',       2, 15),
+  ('Police Dept',     'الشرطة',        2, 20),
+  ('Ambulance',       'الإسعاف',       2, 12),
+  ('Water Co.',       'شركة المياه',   2, 8),
+  ('Electricity Co.', 'شركة الكهرباء', 2, 8),
+  ('Gas Co.',         'طوارئ الغاز',    2, 6)
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
 -- STEP 7: Storage Bucket

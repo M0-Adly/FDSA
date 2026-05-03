@@ -372,8 +372,9 @@ export default function EmployeeDashboard() {
                                     </button>
                                   </div>
                                   <button onClick={async () => { 
-                                    if (confirm('هل تريد طلب المساعدة من القسم الآخر؟')) {
-                                      await manager.escalateReport(r.id, user.id);
+                                    const units = prompt(language === 'ar' ? 'أدخل عدد الوحدات المطلوبة للمساعدة من القسم الآخر:' : 'Enter number of units requested from the other district:', '1');
+                                    if (units && !isNaN(parseInt(units))) {
+                                      await manager.escalateReport(r.id, user.id, parseInt(units));
                                       window.location.reload();
                                     }
                                   }} className="px-5 py-2 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-xl text-[9px] font-black uppercase hover:bg-orange-500 hover:text-white transition-all">

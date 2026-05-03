@@ -256,7 +256,7 @@ export class CrisisManager {
     await this.logAction(reportId, 'START', userId);
   }
 
-  async escalateReport(reportId: string, userId: string) {
+  async escalateReport(reportId: string, userId: string, helpUnits: number = 1) {
     this.simStep++;
     const departments = this.getAllDepartmentNodes();
     let sourceNode: DepartmentNode | null = null;
@@ -290,7 +290,8 @@ export class CrisisManager {
         district_id: siblingDistrictId, 
         department_id: siblingDept.id,
         status: 'pending',
-        escalated: true
+        escalated: true,
+        description: report.description + ` (طلب مساعدة خارجية: مطلوب ${helpUnits} وحدات من القسم السابق)`
       }).eq('id', reportId);
 
       await this.logAction(reportId, 'ESCALATE', userId);
