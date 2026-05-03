@@ -97,31 +97,53 @@ CREATE TABLE IF NOT EXISTS public.report_actions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 5. SEED DATA (Clean Setup - Only requested districts)
+-- 5. SEED DATA (Aswan Districts and Departments)
 -- 🛑 Clear all old data to prevent duplicates in UI
 TRUNCATE TABLE public.departments, public.districts CASCADE;
 
 INSERT INTO public.districts (name_ar, name_en) VALUES 
-('قسم أول', 'First District'),
-('قسم ثان', 'Second District')
+('قسم أول أسوان', 'First District'),
+('قسم ثان أسوان', 'Second District'),
+('مركز أسوان', 'Aswan Center')
 ON CONFLICT DO NOTHING;
 
 -- Populate Departments (Multi-District Seed)
 DO $$
 DECLARE
-    d1 INT; d2 INT;
+    d1 INT; d2 INT; d3 INT;
 BEGIN
-    SELECT id INTO d1 FROM public.districts WHERE name_ar = 'قسم أول';
-    SELECT id INTO d2 FROM public.districts WHERE name_ar = 'قسم ثان';
+    SELECT id INTO d1 FROM public.districts WHERE name_en = 'First District';
+    SELECT id INTO d2 FROM public.districts WHERE name_en = 'Second District';
+    SELECT id INTO d3 FROM public.districts WHERE name_en = 'Aswan Center';
 
     -- First District
     INSERT INTO public.departments (district_id, name_ar, name_en) VALUES 
-    (d1, 'شركة الكهرباء', 'Electricity Co.'), (d1, 'شركة المياه', 'Water Co.'), (d1, 'هيئة الإسعاف', 'Ambulance Authority')
+    (d1, 'شركة الكهرباء', 'Electricity Co.'), 
+    (d1, 'شركة المياه', 'Water Co.'), 
+    (d1, 'هيئة الإسعاف', 'Ambulance Authority'),
+    (d1, 'هيئة المطافئ', 'Fire Department'),
+    (d1, 'مركز الشرطة', 'Police Station'),
+    (d1, 'طوارئ الغاز', 'Gas Co.')
     ON CONFLICT (district_id, name_en) DO NOTHING;
 
     -- Second District
     INSERT INTO public.departments (district_id, name_ar, name_en) VALUES 
-    (d2, 'شركة الكهرباء', 'Electricity Co.'), (d2, 'طوارئ الغاز', 'Gas Co.'), (d2, 'هيئة المطافئ', 'Fire Department')
+    (d2, 'شركة الكهرباء', 'Electricity Co.'), 
+    (d2, 'شركة المياه', 'Water Co.'),
+    (d2, 'طوارئ الغاز', 'Gas Co.'), 
+    (d2, 'هيئة المطافئ', 'Fire Department'),
+    (d2, 'هيئة الإسعاف', 'Ambulance Authority'),
+    (d2, 'مركز الشرطة', 'Police Station')
+    ON CONFLICT (district_id, name_en) DO NOTHING;
+
+    -- Aswan Center
+    INSERT INTO public.departments (district_id, name_ar, name_en) VALUES 
+    (d3, 'شركة المياه', 'Water Co.'), 
+    (d3, 'شركة الكهرباء', 'Electricity Co.'), 
+    (d3, 'طوارئ الغاز', 'Gas Co.'),
+    (d3, 'مركز الشرطة', 'Police Station'),
+    (d3, 'هيئة الإسعاف', 'Ambulance Authority'),
+    (d3, 'هيئة المطافئ', 'Fire Department')
     ON CONFLICT (district_id, name_en) DO NOTHING;
 END $$;
 
