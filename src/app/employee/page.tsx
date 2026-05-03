@@ -348,7 +348,12 @@ export default function EmployeeDashboard() {
                               <div className="flex justify-between items-start mb-4">
                                 <div>
                                   <h4 className="text-lg font-black text-white">{r.type}</h4>
-                                  <span className="px-2 py-0.5 mt-2 inline-block bg-red-500/10 text-red-400 rounded text-[9px] font-black border border-red-500/20">أولوية: {r.priority}</span>
+                                  <div className="flex gap-2 mt-2">
+                                    <span className="px-2 py-0.5 bg-red-500/10 text-red-400 rounded text-[9px] font-black border border-red-500/20">أولوية: {r.priority}%</span>
+                                    {r.escalated && (
+                                      <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-[9px] font-black border border-orange-500/30 animate-pulse">🚨 طلب مساعدة خارجية</span>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="flex flex-col gap-2">
                                   <div className="flex items-center gap-2 mb-2">
