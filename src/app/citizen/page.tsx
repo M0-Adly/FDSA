@@ -40,6 +40,7 @@ export default function CitizenDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [profile, setProfile] = useState<any>(null);
   const [notifications, setNotifications] = useState<Report[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
   const [lastSeen, setLastSeen] = useState<string>(
     typeof window !== 'undefined' ? localStorage.getItem('lastSeenNotifications') || '1970-01-01' : '1970-01-01'
   );
