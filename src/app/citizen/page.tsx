@@ -17,8 +17,11 @@ interface Report {
   priority: number;
   status: string;
   created_at: string;
+  resolved_at?: string;
   department_id: number;
   citizen_confirmed?: boolean;
+  departments?: { name_ar: string; name_en: string };
+  districts?: { name_ar: string; name_en: string };
 }
 
 export default function CitizenDashboard() {
@@ -33,10 +36,11 @@ export default function CitizenDashboard() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [tab, setTab] = useState<'reports' | 'submit' | 'resubmit'>('reports');
+  const [tab, setTab] = useState<'reports' | 'submit' | 'resubmit' | 'notifications'>('reports');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [toast, setToast] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [notifications, setNotifications] = useState<Report[]>([]);
 
   // Resubmit states
   const [resubmitName, setResubmitName] = useState('');
@@ -50,6 +54,7 @@ export default function CitizenDashboard() {
   useEffect(() => {
     checkAuth();
     fetchDistricts();
+    fetchNotifications();
   }, []);
 
   // ... (keeping fetch methods unchanged)
@@ -93,6 +98,16 @@ export default function CitizenDashboard() {
       .order('created_at', { ascending: false });
     if (data) setReports(data);
     setLoading(false);
+  };
+
+  const fetchNotifications = async () => {
+    const { data } = await supabase
+      .from('reports')
+      .select('*, departments(name_ar, name_en), districts(name_ar, name_en)')
+      .eq('status', 'resolved')
+      .order('resolved_at', { ascending: false })
+      .limit(20);
+    if (data) setNotifications(data);
   };
 
   const handleResubmit = async (e: React.FormEvent) => {
@@ -253,6 +268,10 @@ export default function CitizenDashboard() {
         <button onClick={() => setTab('reports')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${tab === 'reports' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white/70'}`}>
           {language === 'ar' ? 'بلاغاتي' : 'My Reports'}
         </button>
+        <button onClick={() => setTab('notifications')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${tab === 'notifications' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white/70'}`}>
+          {language === 'ar' ? 'الإشعارات' : 'Notifications'}
+          {notifications.length > 0 && <span className="ml-2 bg-red-500 text-[8px] px-1.5 py-0.5 rounded-full">{notifications.length}</span>}
+        </button>
         <button onClick={() => isApproved && setTab('submit')} disabled={!isApproved} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${!isApproved ? 'opacity-20' : tab === 'submit' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white/70'}`}>
           {language === 'ar' ? 'بلاغ جديد' : 'New Report'}
         </button>
@@ -307,6 +326,36 @@ export default function CitizenDashboard() {
                 </div>
               ))
             }
+          </div>
+        )}
+
+        {tab === 'notifications' && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-black mb-6 flex items-center gap-2"><span>🔔</span> {language === 'ar' ? 'آخر التحديثات الوطنية' : 'Latest National Updates'}</h2>
+            {notifications.length === 0 ? (
+              <div className="py-20 text-center bg-white/5 rounded-3xl border border-white/10">
+                <p className="text-white/10 font-bold italic">{language === 'ar' ? 'لا توجد إشعارات حالياً' : 'No notifications yet'}</p>
+              </div>
+            ) : (
+              notifications.map(n => (
+                <div key={n.id} className="p-5 bg-white/5 border border-white/10 rounded-3xl flex items-start gap-4 hover:bg-white/[0.08] transition-all border-l-4 border-l-emerald-500">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">✨</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-white/90 leading-relaxed">
+                      {language === 'ar' 
+                        ? `تم حل مشكلة (${n.type}) في منطقة (${n.districts?.name_ar || 'غير معروف'}) بواسطة (${n.departments?.name_ar || 'الجهة المختصة'})`
+                        : `The (${n.type}) issue in (${n.districts?.name_en || 'Unknown'}) has been resolved by (${n.departments?.name_en || 'Department'})`
+                      }
+                    </p>
+                    <div className="flex items-center gap-4 mt-2">
+                      <span className="text-[10px] text-white/30 uppercase font-black">{new Date(n.resolved_at!).toLocaleDateString()}</span>
+                      <span className="w-1 h-1 rounded-full bg-white/10"></span>
+                      <span className="text-[10px] text-emerald-400/60 font-bold uppercase tracking-widest">{language === 'ar' ? 'تم الإنجاز' : 'COMPLETED'}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
 
