@@ -43,15 +43,17 @@ export default function CitizenSignup() {
         imgElement.onerror = reject;
       });
 
-      // Resize and normalize image (x / 255.0)
+      // Resize and normalize image (MobileNetV2 typically uses [-1, 1] range: (x / 127.5) - 1)
       const tensor = tf.browser.fromPixels(imgElement)
         .resizeNearestNeighbor([224, 224])
         .toFloat()
-        .div(tf.scalar(255.0))
+        .div(tf.scalar(127.5))
+        .sub(tf.scalar(1.0))
         .expandDims(0);
 
       const prediction = model.predict(tensor) as any;
-      const score = prediction.dataSync()[0];
+      const scoreData = await prediction.data();
+      const score = scoreData[0];
 
       // Cleanup memory
       tensor.dispose();
@@ -59,7 +61,7 @@ export default function CitizenSignup() {
 
       if (score > 0.5) {
         setError(language === 'ar' 
-          ? `عذراً، هذه ليست صورة بطاقة هوية صحيحة. يرجى رفع صورة بطاقة حقيقية.` 
+          ? `عذراً، هذه ليست صورة بطاقة هوية صحيحة (نسبة التطابق: ${((1 - score) * 100).toFixed(1)}%). يرجى رفع صورة بطاقة حقيقية.` 
           : `Uploaded image is not a valid ID card. Please upload a real ID card.`);
         setLoading(false);
         return;
@@ -69,9 +71,11 @@ export default function CitizenSignup() {
       
     } catch (err: any) {
       console.error("AI Verification failed:", err);
-      // If AI fails to load or error happens, we can either block or allow.
-      // We will allow it but log error to not block users if model fails to load.
-      setError(''); 
+      setError(language === 'ar' 
+        ? `حدث خطأ أثناء تشغيل الذكاء الاصطناعي لفحص البطاقة: ${err.message}` 
+        : `AI Verification Error: ${err.message}`);
+      setLoading(false);
+      return;
     }
 
     const email = `${phone.trim()}@citizen.eg`;
