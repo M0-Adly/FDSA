@@ -38,9 +38,11 @@ export default function CitizenDashboard() {
   const [user, setUser] = useState<any>(null);
   const [tab, setTab] = useState<'reports' | 'submit' | 'resubmit' | 'notifications'>('reports');
   const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [toast, setToast] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [notifications, setNotifications] = useState<Report[]>([]);
+  const [lastSeen, setLastSeen] = useState<string>(
+    typeof window !== 'undefined' ? localStorage.getItem('lastSeenNotifications') || '1970-01-01' : '1970-01-01'
+  );
 
   // Resubmit states
   const [resubmitName, setResubmitName] = useState('');
@@ -109,6 +111,19 @@ export default function CitizenDashboard() {
       .limit(20);
     if (data) setNotifications(data);
   };
+
+  const handleTabChange = (newTab: typeof tab) => {
+    setTab(newTab);
+    if (newTab === 'notifications') {
+      const now = new Date().toISOString();
+      setLastSeen(now);
+      localStorage.setItem('lastSeenNotifications', now);
+    }
+  };
+
+  const unreadCount = notifications.filter(n => 
+    n.resolved_at && new Date(n.resolved_at) > new Date(lastSeen)
+  ).length;
 
   const handleResubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,14 +280,19 @@ export default function CitizenDashboard() {
       </div>
 
       <div className="flex gap-1 p-1 bg-white/5 rounded-2xl border border-white/10 mb-8 w-fit">
-        <button onClick={() => setTab('reports')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${tab === 'reports' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white/70'}`}>
+        <button onClick={() => handleTabChange('reports')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${tab === 'reports' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white/70'}`}>
           {language === 'ar' ? 'بلاغاتي' : 'My Reports'}
         </button>
-        <button onClick={() => setTab('notifications')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${tab === 'notifications' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white/70'}`}>
+        <button onClick={() => handleTabChange('notifications')} className={`px-6 py-3 rounded-xl text-xs font-black transition-all relative ${tab === 'notifications' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white/70'}`}>
           {language === 'ar' ? 'الإشعارات' : 'Notifications'}
-          {notifications.length > 0 && <span className="ml-2 bg-red-500 text-[8px] px-1.5 py-0.5 rounded-full">{notifications.length}</span>}
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 w-4">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 text-[8px] items-center justify-center text-white font-black">{unreadCount}</span>
+            </span>
+          )}
         </button>
-        <button onClick={() => isApproved && setTab('submit')} disabled={!isApproved} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${!isApproved ? 'opacity-20' : tab === 'submit' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white/70'}`}>
+        <button onClick={() => isApproved && handleTabChange('submit')} disabled={!isApproved} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${!isApproved ? 'opacity-20' : tab === 'submit' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:text-white/70'}`}>
           {language === 'ar' ? 'بلاغ جديد' : 'New Report'}
         </button>
       </div>
