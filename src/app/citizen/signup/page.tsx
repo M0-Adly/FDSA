@@ -43,11 +43,12 @@ export default function CitizenSignup() {
         imgElement.onerror = reject;
       });
 
-      // Normalization: Many custom Keras models use [0, 1] range (rescale=1/255)
+      // Resize and normalize image (MobileNetV2 typically uses [-1, 1] range: (x / 127.5) - 1)
       const tensor = tf.browser.fromPixels(imgElement)
         .resizeNearestNeighbor([224, 224])
         .toFloat()
-        .div(tf.scalar(255.0))
+        .div(tf.scalar(127.5))
+        .sub(tf.scalar(1.0))
         .expandDims(0);
 
       const prediction = model.predict(tensor) as any;
@@ -58,15 +59,13 @@ export default function CitizenSignup() {
       tensor.dispose();
       prediction.dispose();
 
-      // Based on user feedback, if the model is "backwards", we might need to flip the threshold or normalization.
-      // User said: < 0.5 is CARD, > 0.5 is NOT CARD.
-      // If a real card gives 0.62, then the model is either inverted or normalization is wrong.
-      // We'll try [0, 1] normalization first. 
-      if (score > 0.5) {
-        const matchPercent = ((1 - score) * 100).toFixed(1);
+      // Based on the behavior, the model outputs probability of being a CARD (1 = Card, 0 = Not Card).
+      // So if score < 0.5, it is NOT a card.
+      if (score < 0.5) {
+        const matchPercent = (score * 100).toFixed(1);
         setError(language === 'ar' 
-          ? `عذراً، لم يتم التعرف على البطاقة بشكل صحيح (نسبة الثقة: ${matchPercent}%). يرجى التأكد من إضاءة الصورة ووضوحها.` 
-          : `ID card not recognized (Confidence: ${matchPercent}%). Please ensure clear lighting.`);
+          ? `عذراً، هذه الصورة لا تبدو كبطاقة هوية صحيحة (نسبة التطابق: ${matchPercent}%). يرجى رفع صورة واضحة ومباشرة لبطاقة الرقم القومي.` 
+          : `Image does not appear to be a valid ID card (Match: ${matchPercent}%). Please upload a clear ID card image.`);
         setLoading(false);
         return;
       }
