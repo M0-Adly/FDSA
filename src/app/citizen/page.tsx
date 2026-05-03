@@ -108,6 +108,7 @@ export default function CitizenDashboard() {
       .from('reports')
       .select('*, departments(name_ar, name_en), districts(name_ar, name_en)')
       .eq('status', 'resolved')
+      .eq('citizen_confirmed', true)
       .order('resolved_at', { ascending: false })
       .limit(20);
     if (data) setNotifications(data);
