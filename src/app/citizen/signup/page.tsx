@@ -43,12 +43,11 @@ export default function CitizenSignup() {
         imgElement.onerror = reject;
       });
 
-      // Resize and normalize image (MobileNetV2 typically uses [-1, 1] range: (x / 127.5) - 1)
+      // Normalization: Many custom Keras models use [0, 1] range (rescale=1/255)
       const tensor = tf.browser.fromPixels(imgElement)
         .resizeNearestNeighbor([224, 224])
         .toFloat()
-        .div(tf.scalar(127.5))
-        .sub(tf.scalar(1.0))
+        .div(tf.scalar(255.0))
         .expandDims(0);
 
       const prediction = model.predict(tensor) as any;
@@ -59,10 +58,15 @@ export default function CitizenSignup() {
       tensor.dispose();
       prediction.dispose();
 
+      // Based on user feedback, if the model is "backwards", we might need to flip the threshold or normalization.
+      // User said: < 0.5 is CARD, > 0.5 is NOT CARD.
+      // If a real card gives 0.62, then the model is either inverted or normalization is wrong.
+      // We'll try [0, 1] normalization first. 
       if (score > 0.5) {
+        const matchPercent = ((1 - score) * 100).toFixed(1);
         setError(language === 'ar' 
-          ? `عذراً، هذه ليست صورة بطاقة هوية صحيحة (نسبة التطابق: ${((1 - score) * 100).toFixed(1)}%). يرجى رفع صورة بطاقة حقيقية.` 
-          : `Uploaded image is not a valid ID card. Please upload a real ID card.`);
+          ? `عذراً، لم يتم التعرف على البطاقة بشكل صحيح (نسبة الثقة: ${matchPercent}%). يرجى التأكد من إضاءة الصورة ووضوحها.` 
+          : `ID card not recognized (Confidence: ${matchPercent}%). Please ensure clear lighting.`);
         setLoading(false);
         return;
       }
