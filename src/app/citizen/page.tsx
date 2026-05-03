@@ -32,7 +32,16 @@ export default function CitizenDashboard() {
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [selectedDept, setSelectedDept] = useState('');
   const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState(3);
+  
+  // New Priority States
+  const [showPriorityDetails, setShowPriorityDetails] = useState(false);
+  const [damageLevel, setDamageLevel] = useState(3);
+  const [expansionSpeed, setExpansionSpeed] = useState(3);
+  const [problemSize, setProblemSize] = useState(3);
+  const [lifeThreat, setLifeThreat] = useState(3);
+  const [infraImpact, setInfraImpact] = useState(3);
+
+  const priorityScore = Math.round(((damageLevel + expansionSpeed + problemSize + lifeThreat + infraImpact) / 25) * 100);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -221,14 +230,19 @@ export default function CitizenDashboard() {
         await mgr.initialize();
         await mgr.fileReport(
           [parseInt(selectedDept)], 
-          { description, priority: parseInt(priority.toString()), lat, lng }, 
+          { description, priority: priorityScore, lat, lng }, 
           user.id
         );
         
         showToast(language === 'ar' ? 'تم إرسال البلاغ بنجاح' : 'Report submitted successfully');
         setTab('reports');
         setDescription('');
-        setPriority(3);
+        setDamageLevel(3);
+        setExpansionSpeed(3);
+        setProblemSize(3);
+        setLifeThreat(3);
+        setInfraImpact(3);
+        setShowPriorityDetails(false);
         setManualLocation(null);
         setShowMapPicker(false);
         fetchMyReports(user.id);
@@ -460,13 +474,55 @@ export default function CitizenDashboard() {
                 )}
               </div>
               <div>
-                <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">{language === 'ar' ? 'درجة الخطورة' : 'Priority'}</label>
-                <select required value={priority} onChange={e => setPriority(Number(e.target.value))} className="input-premium mb-5">
-                  <option value="1" className="bg-slate-900 text-white">{language === 'ar' ? 'منخفضة (1)' : 'Low (1)'}</option>
-                  <option value="2" className="bg-slate-900 text-white">{language === 'ar' ? 'متوسطة (2)' : 'Medium (2)'}</option>
-                  <option value="3" className="bg-slate-900 text-white">{language === 'ar' ? 'عالية (3)' : 'High (3)'}</option>
-                  <option value="4" className="bg-slate-900 text-white">{language === 'ar' ? 'حالة طوارئ قصوى (4)' : 'Critical (4)'}</option>
-                </select>
+                <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">{language === 'ar' ? 'أولوية البلاغ' : 'Report Priority'}</label>
+                <button 
+                  type="button" 
+                  onClick={() => setShowPriorityDetails(!showPriorityDetails)}
+                  className="w-full flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl text-sm font-bold text-white mb-5 transition-all hover:bg-white/10"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">⚖️</span>
+                    <span>{language === 'ar' ? 'تحديد أولوية المشكلة' : 'Set Problem Priority'}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className={`px-3 py-1 rounded-full text-xs font-black ${priorityScore > 75 ? 'bg-red-500/20 text-red-400' : priorityScore > 50 ? 'bg-orange-500/20 text-orange-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                      {priorityScore}%
+                    </span>
+                    <span className="text-white/40 text-xs">{showPriorityDetails ? '▲' : '▼'}</span>
+                  </div>
+                </button>
+
+                {showPriorityDetails && (
+                  <div className="p-5 bg-white/5 border border-white/10 rounded-2xl mb-5 space-y-4 animate-slide-down">
+                    <div className="text-center mb-4 pb-4 border-b border-white/10">
+                      <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">{language === 'ar' ? 'الأولوية المحسوبة' : 'Calculated Priority'}</p>
+                      <p className={`text-4xl font-black ${priorityScore > 75 ? 'text-red-400' : priorityScore > 50 ? 'text-orange-400' : 'text-emerald-400'}`}>{priorityScore}%</p>
+                    </div>
+
+                    {[
+                      { label: language === 'ar' ? 'مدى ضرر المشكلة' : 'Extent of Damage', val: damageLevel, set: setDamageLevel },
+                      { label: language === 'ar' ? 'سرعة اتساع المشكلة' : 'Speed of Expansion', val: expansionSpeed, set: setExpansionSpeed },
+                      { label: language === 'ar' ? 'حجم المشكلة' : 'Size of Problem', val: problemSize, set: setProblemSize },
+                      { label: language === 'ar' ? 'تهديد للحياة' : 'Threat to Life', val: lifeThreat, set: setLifeThreat },
+                      { label: language === 'ar' ? 'تأثير على البنية التحتية/البيئة' : 'Infrastructure/Env Impact', val: infraImpact, set: setInfraImpact },
+                    ].map((item, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="flex justify-between items-center text-xs font-bold text-white/70">
+                          <span>{item.label}</span>
+                          <span className="text-white/40">{item.val} / 5</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="5" 
+                          value={item.val} 
+                          onChange={e => item.set(Number(e.target.value))}
+                          className="w-full accent-indigo-500 h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer" 
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">{language === 'ar' ? 'وصف المشكلة' : 'Description'}</label>

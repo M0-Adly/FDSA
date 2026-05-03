@@ -51,7 +51,7 @@ export class CrisisManager {
       this.root.children.insertLast(distNode);
 
       departments!.filter(d => d.district_id === dist.id).forEach(dept => {
-        const deptNode = new DepartmentNode(dept.id, dept.name_en, dept.name_ar, dist.id);
+        const deptNode = new DepartmentNode(dept.id, dept.name_en, dept.name_ar, dist.id, dept.total_units || 10);
         distNode.children.insertLast(deptNode);
       });
     });
@@ -162,7 +162,7 @@ export class CrisisManager {
       type: 'RESOLVE', 
       reportId: reportId, 
       fromDeptId: foundNode.id,
-      data: { promotedId } 
+      data: { promotedId, releasedUnits: foundReport.dispatched_units } 
     });
     
     await this.logAction(reportId, 'RESOLVE', userId);
@@ -219,7 +219,7 @@ export class CrisisManager {
     await this.logAction(reportId, 'BACKUP', userId);
   }
 
-  async startResponse(reportId: string, userId: string) {
+  async startResponse(reportId: string, userId: string, unitsCount: number = 1) {
     let foundNode: DepartmentNode | null = null;
     let foundReport: Report | null = null;
 
@@ -235,18 +235,66 @@ export class CrisisManager {
 
     if (!foundNode || !foundReport) return;
 
-    if (foundNode.ongoingReports.size() >= this.MAX_ONGOING) {
-      throw new Error('Maximum ongoing reports reached for this department. Resolve others first.');
+    // Calculate currently used units
+    const usedUnits = foundNode.ongoingReports.toArray().reduce((sum, r) => sum + (r.dispatched_units || 0), 0);
+    if (usedUnits + unitsCount > foundNode.total_units) {
+      throw new Error(`لا يوجد وحدات كافية حالياً. المتاح: ${foundNode.total_units - usedUnits}`);
     }
 
     this.simStep++;
-    await supabase.from('reports').update({ status: 'ongoing' }).eq('id', reportId);
+    await supabase.from('reports').update({ 
+      status: 'ongoing', 
+      dispatched_units: unitsCount 
+    }).eq('id', reportId);
+    
     foundNode.pendingReports.removeNode(r => r.id === reportId);
     foundReport.status = 'ongoing';
+    foundReport.dispatched_units = unitsCount;
     foundNode.ongoingReports.insertLast(foundReport);
 
     this.undoStack.push({ type: 'PROMOTE', reportId: reportId, fromDeptId: foundNode.id });
     await this.logAction(reportId, 'START', userId);
+  }
+
+  async escalateReport(reportId: string, userId: string) {
+    this.simStep++;
+    const departments = this.getAllDepartmentNodes();
+    let sourceNode: DepartmentNode | null = null;
+    let report: Report | null = null;
+
+    for (const node of departments) {
+      const res = node.findReport(reportId);
+      if (res && res.list === 'pending') {
+        sourceNode = node;
+        report = res.report;
+        break;
+      }
+    }
+
+    if (!sourceNode || !report) return;
+
+    // Escalate to the sibling district (manual request for help)
+    const siblingDistrictId = sourceNode.district_id === 1 ? 2 : 1;
+    const siblingDept = departments.find(d => d.name_en === sourceNode!.name_en && d.district_id === siblingDistrictId);
+    
+    if (siblingDept) {
+      sourceNode.pendingReports.removeNode(r => r.id === reportId);
+      report.district_id = siblingDistrictId;
+      report.department_id = siblingDept.id;
+      report.status = 'pending';
+      report.dispatched_units = 0;
+      
+      siblingDept.pendingReports.insertSortedByPriority(report, r => r.priority);
+
+      await supabase.from('reports').update({ 
+        district_id: siblingDistrictId, 
+        department_id: siblingDept.id,
+        status: 'pending',
+        escalated: true
+      }).eq('id', reportId);
+
+      await this.logAction(reportId, 'ESCALATE', userId);
+    }
   }
 
   async escalateAll(userId: string) {

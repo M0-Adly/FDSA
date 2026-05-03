@@ -266,7 +266,9 @@ export default function EmployeeDashboard() {
                     <div>
                       <h2 className="text-3xl font-black text-white">{language === 'ar' ? selectedNode.name_ar : selectedNode.name_en}</h2>
                       <div className="flex gap-4 mt-2">
-                        <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-black rounded-lg">عمليات جارية: {selectedNode.ongoingReports.size()} / 3</span>
+                        <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-black rounded-lg">
+                          الوحدات العاملة: {selectedNode.ongoingReports.toArray().reduce((sum: number, r: any) => sum + (r.dispatched_units || 0), 0)} / {selectedNode.total_units}
+                        </span>
                         <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black rounded-lg">قائمة الانتظار: {selectedNode.pendingReports.size()}</span>
                       </div>
                     </div>
@@ -312,7 +314,13 @@ export default function EmployeeDashboard() {
                                   )}
                                 </div>
                               </div>
-                              <p className="text-sm text-white/60 leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5">{r.description}</p>
+                              <div className="flex justify-between items-center mt-4">
+                                <p className="text-sm text-white/60 leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5 flex-1">{r.description}</p>
+                                <div className="ml-4 flex flex-col items-center justify-center p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                                  <span className="text-[9px] font-black text-blue-400 uppercase">الوحدات</span>
+                                  <span className="text-xl font-black text-white">{r.dispatched_units || 1}</span>
+                                </div>
+                              </div>
                             </div>
                           ))
                         )}
@@ -343,11 +351,36 @@ export default function EmployeeDashboard() {
                                   <span className="px-2 py-0.5 mt-2 inline-block bg-red-500/10 text-red-400 rounded text-[9px] font-black border border-red-500/20">أولوية: {r.priority}</span>
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                  <button onClick={async () => { await manager.startResponse(r.id, user.id); window.location.reload(); }} className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-blue-600/20 hover:bg-blue-500 active:scale-95 transition-all">
-                                    بدء الاستجابة
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <input 
+                                      type="number" 
+                                      id={`dispatch-units-${r.id}`} 
+                                      defaultValue={1} 
+                                      min={1} 
+                                      max={selectedNode.total_units}
+                                      className="w-16 bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-xs font-black text-white" 
+                                    />
+                                    <button onClick={async () => { 
+                                      const input = document.getElementById(`dispatch-units-${r.id}`) as HTMLInputElement;
+                                      const count = parseInt(input.value);
+                                      try {
+                                        await manager.startResponse(r.id, user.id, count); 
+                                        window.location.reload(); 
+                                      } catch(err: any) { alert(err.message); }
+                                    }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase shadow-lg shadow-blue-600/20 hover:bg-blue-500 active:scale-95 transition-all">
+                                      إرسال وحدات
+                                    </button>
+                                  </div>
+                                  <button onClick={async () => { 
+                                    if (confirm('هل تريد طلب المساعدة من القسم الآخر؟')) {
+                                      await manager.escalateReport(r.id, user.id);
+                                      window.location.reload();
+                                    }
+                                  }} className="px-5 py-2 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-xl text-[9px] font-black uppercase hover:bg-orange-500 hover:text-white transition-all">
+                                    طلب مساعدة خارجية ↗️
                                   </button>
                                   {r.lat && r.lng && (
-                                    <button onClick={() => { setFocusedLocation([r.lat, r.lng]); setSelectedNode(null); }} className="px-5 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">
+                                    <button onClick={() => { setFocusedLocation([r.lat, r.lng]); setSelectedNode(null); }} className="px-5 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all mt-2">
                                       موقع المشكلة 📍
                                     </button>
                                   )}

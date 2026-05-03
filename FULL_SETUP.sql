@@ -26,21 +26,23 @@ CREATE TABLE IF NOT EXISTS public.departments (
   id          SERIAL PRIMARY KEY,
   name_en     TEXT NOT NULL,
   name_ar     TEXT NOT NULL,
-  district_id INT REFERENCES public.districts(id) ON DELETE CASCADE
+  district_id INT REFERENCES public.districts(id) ON DELETE CASCADE,
+  total_units INT DEFAULT 10
 );
 
 CREATE TABLE IF NOT EXISTS public.reports (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_by    UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  department_id INT  REFERENCES public.departments(id) ON DELETE SET NULL,
-  district_id   INT  REFERENCES public.districts(id) ON DELETE SET NULL,
-  type          TEXT NOT NULL,
-  description   TEXT,
-  priority      INT  CHECK (priority BETWEEN 1 AND 5),
-  status        TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'ongoing', 'resolved', 'escalated')),
-  escalated     BOOLEAN DEFAULT FALSE,
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  resolved_at   TIMESTAMPTZ
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_by       UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  department_id    INT  REFERENCES public.departments(id) ON DELETE SET NULL,
+  district_id      INT  REFERENCES public.districts(id) ON DELETE SET NULL,
+  type             TEXT NOT NULL,
+  description      TEXT,
+  priority         INT  CHECK (priority BETWEEN 0 AND 100),
+  dispatched_units INT  DEFAULT 0,
+  status           TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'ongoing', 'resolved', 'escalated')),
+  escalated        BOOLEAN DEFAULT FALSE,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  resolved_at      TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS public.report_actions (

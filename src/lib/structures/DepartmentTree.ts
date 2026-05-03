@@ -10,6 +10,7 @@ export interface Report {
   department_id: number;
   district_id: number;
   timestamp: number; // simStep when filed
+  dispatched_units: number;
   citizen_confirmed?: boolean;
 }
 
@@ -18,17 +19,19 @@ export class DepartmentNode {
   name_en: string;
   name_ar: string;
   district_id: number;
+  total_units: number = 10;
   children: SinglyLinkedList<DepartmentNode> = new SinglyLinkedList<DepartmentNode>();
   
   ongoingReports: SinglyLinkedList<Report> = new SinglyLinkedList<Report>();
   pendingReports: DoublyLinkedList<Report> = new DoublyLinkedList<Report>();
   resolvedArchive: CircularLinkedList<Report> = new CircularLinkedList<Report>(10);
 
-  constructor(id: number, name_en: string, name_ar: string, district_id: number) {
+  constructor(id: number, name_en: string, name_ar: string, district_id: number, total_units: number = 10) {
     this.id = id;
     this.name_en = name_en;
     this.name_ar = name_ar;
     this.district_id = district_id;
+    this.total_units = total_units;
   }
 
   // DFS search for a department node by ID

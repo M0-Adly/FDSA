@@ -9,7 +9,7 @@ import { useLanguage } from '@/components/LanguageContext';
 
 export default function AdminPanel() {
   const { t, language } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'staff' | 'citizens' | 'staff_list'>('citizens');
+  const [activeTab, setActiveTab] = useState<'staff' | 'citizens' | 'staff_list' | 'units'>('citizens');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loadingRole, setLoadingRole] = useState(true);
   
@@ -27,6 +27,8 @@ export default function AdminPanel() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'suspended' | 'rejected'>('all');
   const [selectedCitizen, setSelectedCitizen] = useState<any | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [updatingUnit, setUpdatingUnit] = useState<number | null>(null);
 
   useEffect(() => {
     checkUserRole();
@@ -55,6 +57,7 @@ export default function AdminPanel() {
         setActiveTab('staff_list');
         fetchCitizens();
         fetchEmployees();
+        fetchDepartments();
       } else {
         fetchCitizens();
       }
@@ -72,6 +75,24 @@ export default function AdminPanel() {
   const fetchEmployees = async () => {
     const { data } = await supabase.from('profiles').select('*').eq('role', 'employee').order('created_at', { ascending: false });
     if (data) setEmployees(data);
+  };
+
+  const fetchDepartments = async () => {
+    const { data } = await supabase.from('departments').select('*, districts(name_ar, name_en)').order('id', { ascending: true });
+    if (data) setDepartments(data);
+  };
+
+  const updateUnitCapacity = async (deptId: number, newTotal: number) => {
+    setUpdatingUnit(deptId);
+    try {
+      const { error } = await supabase.from('departments').update({ total_units: newTotal }).eq('id', deptId);
+      if (error) throw error;
+      await fetchDepartments();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setUpdatingUnit(null);
+    }
   };
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
@@ -184,6 +205,9 @@ export default function AdminPanel() {
             </button>
             <button onClick={() => setActiveTab('staff')} className={`px-6 py-3 rounded-2xl text-xs font-black transition-all ${activeTab === 'staff' ? 'bg-blue-600 text-white shadow-lg' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}>
               ➕ إضافة موظف جديد
+            </button>
+            <button onClick={() => setActiveTab('units')} className={`px-6 py-3 rounded-2xl text-xs font-black transition-all ${activeTab === 'units' ? 'bg-orange-600 text-white shadow-lg' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}>
+              🚛 التحكم في الوحدات
             </button>
           </>
         )}
@@ -321,6 +345,53 @@ export default function AdminPanel() {
               </button>
               {msg.text && <p className={`text-xs text-center mt-6 p-4 rounded-xl font-bold ${msg.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>{msg.text}</p>}
             </form>
+          </div>
+        )}
+
+        {isAdmin && activeTab === 'units' && (
+          <div className="h-full bg-white/5 border border-white/10 rounded-3xl overflow-hidden flex flex-col animate-fade-in">
+            <div className="p-6 border-b border-white/10 bg-black/20 flex justify-between items-center shrink-0">
+              <h2 className="font-black text-white uppercase tracking-wider">إدارة سعة الوحدات (العربات)</h2>
+              <div className="text-[10px] font-bold text-white/30 uppercase">Total Entities: {departments.length}</div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {departments.map(dept => (
+                  <div key={dept.id} className="p-6 bg-white/5 border border-white/10 rounded-3xl group hover:border-orange-500/30 transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-400">🏢</div>
+                        <div>
+                          <h4 className="font-black text-white/90 text-sm">{language === 'ar' ? dept.name_ar : dept.name_en}</h4>
+                          <p className="text-[10px] text-white/30">{language === 'ar' ? dept.districts?.name_ar : dept.districts?.name_en}</p>
+                        </div>
+                      </div>
+                      <div className="mb-6">
+                        <label className="text-[10px] font-black text-white/20 uppercase tracking-widest block mb-2">إجمالي عدد الوحدات العاملة</label>
+                        <div className="flex items-center gap-4">
+                          <input 
+                            type="number" 
+                            defaultValue={dept.total_units || 10} 
+                            id={`units-${dept.id}`}
+                            className="bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-lg font-black text-white w-24 focus:border-orange-500/50 transition-all"
+                          />
+                          <button 
+                            disabled={updatingUnit === dept.id}
+                            onClick={() => {
+                              const input = document.getElementById(`units-${dept.id}`) as HTMLInputElement;
+                              updateUnitCapacity(dept.id, parseInt(input.value));
+                            }}
+                            className="px-6 py-2.5 bg-orange-600 text-white rounded-xl text-xs font-black uppercase hover:bg-orange-500 transition-all disabled:opacity-50"
+                          >
+                            {updatingUnit === dept.id ? '...' : 'تحديث'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
