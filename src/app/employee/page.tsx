@@ -321,6 +321,11 @@ export default function EmployeeDashboard() {
                                   <span className="text-xl font-black text-white">{r.dispatched_units || 1}</span>
                                 </div>
                               </div>
+                              {r.internal_notes && (
+                                <div className="mt-4 px-4 py-2 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+                                  <p className="text-[11px] font-black text-orange-400">📝 ملاحظة داخلية: {r.internal_notes}</p>
+                                </div>
+                              )}
                             </div>
                           ))
                         )}
@@ -354,6 +359,11 @@ export default function EmployeeDashboard() {
                                       <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-[9px] font-black border border-orange-500/30 animate-pulse">🚨 طلب مساعدة خارجية</span>
                                     )}
                                   </div>
+                                  {r.internal_notes && (
+                                    <div className="mt-2 px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                                      <p className="text-[10px] font-black text-orange-400 italic">📝 {r.internal_notes}</p>
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex flex-col gap-2">
                                   <div className="flex items-center gap-2 mb-2">

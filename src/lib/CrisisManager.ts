@@ -153,9 +153,13 @@ export class CrisisManager {
       const nextReport = foundNode.pendingReports.toArray()[0];
       foundNode.pendingReports.removeNode(r => r.id === nextReport.id);
       nextReport.status = 'ongoing';
+      nextReport.dispatched_units = 1; // Default to 1 unit for auto-promotion
       foundNode.ongoingReports.insertLast(nextReport);
       promotedId = nextReport.id;
-      await supabase.from('reports').update({ status: 'ongoing' }).eq('id', nextReport.id);
+      await supabase.from('reports').update({ 
+        status: 'ongoing',
+        dispatched_units: 1 
+      }).eq('id', nextReport.id);
     }
 
     this.undoStack.push({ 
@@ -291,7 +295,7 @@ export class CrisisManager {
         department_id: siblingDept.id,
         status: 'pending',
         escalated: true,
-        description: report.description + ` (طلب مساعدة خارجية: مطلوب ${helpUnits} وحدات من القسم السابق)`
+        internal_notes: `تم تحويل المشكلة من ${sourceNode.name_ar} (طلب ${helpUnits} وحدات)`
       }).eq('id', reportId);
 
       await this.logAction(reportId, 'ESCALATE', userId);
