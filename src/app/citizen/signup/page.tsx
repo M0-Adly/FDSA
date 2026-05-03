@@ -28,10 +28,7 @@ export default function CitizenSignup() {
     }
 
     try {
-      // AI Image Verification
-      if (language === 'ar') setError('جاري فحص صورة البطاقة باستخدام الذكاء الاصطناعي...');
-      else setError('Verifying ID card using AI...');
-
+      // AI Image Verification (Silent unless error)
       const tf = await import('@tensorflow/tfjs');
       const model = await tf.loadLayersModel('/models/tfjs_model/model.json');
 
@@ -60,17 +57,15 @@ export default function CitizenSignup() {
       prediction.dispose();
 
       // Based on the behavior, the model outputs probability of being a CARD (1 = Card, 0 = Not Card).
-      // So if score < 0.5, it is NOT a card.
       if (score < 0.5) {
-        const matchPercent = (score * 100).toFixed(1);
         setError(language === 'ar' 
-          ? `عذراً، هذه الصورة لا تبدو كبطاقة هوية صحيحة (نسبة التطابق: ${matchPercent}%). يرجى رفع صورة واضحة ومباشرة لبطاقة الرقم القومي.` 
-          : `Image does not appear to be a valid ID card (Match: ${matchPercent}%). Please upload a clear ID card image.`);
+          ? `عذراً، لقد قمت برفع صورة وهمية. يرجى رفع صورة بطاقة الرقم القومي الحقيقية لتتمكن من إنشاء الحساب.` 
+          : `You have uploaded a fake image. Please upload a real ID card to create your account.`);
         setLoading(false);
         return;
       }
       
-      setError(''); // Clear verifying message
+      setError(''); // Clear any previous errors if AI passes
       
     } catch (err: any) {
       console.error("AI Verification failed:", err);
