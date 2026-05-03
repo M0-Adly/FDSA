@@ -103,18 +103,16 @@ TRUNCATE TABLE public.departments, public.districts CASCADE;
 
 INSERT INTO public.districts (name_ar, name_en) VALUES 
 ('قسم أول أسوان', 'First District'),
-('قسم ثان أسوان', 'Second District'),
-('مركز أسوان', 'Aswan Center')
+('قسم ثان أسوان', 'Second District')
 ON CONFLICT DO NOTHING;
 
 -- Populate Departments (Multi-District Seed)
 DO $$
 DECLARE
-    d1 INT; d2 INT; d3 INT;
+    d1 INT; d2 INT;
 BEGIN
     SELECT id INTO d1 FROM public.districts WHERE name_en = 'First District';
     SELECT id INTO d2 FROM public.districts WHERE name_en = 'Second District';
-    SELECT id INTO d3 FROM public.districts WHERE name_en = 'Aswan Center';
 
     -- First District
     INSERT INTO public.departments (district_id, name_ar, name_en) VALUES 
@@ -134,16 +132,6 @@ BEGIN
     (d2, 'هيئة المطافئ', 'Fire Department'),
     (d2, 'هيئة الإسعاف', 'Ambulance Authority'),
     (d2, 'مركز الشرطة', 'Police Station')
-    ON CONFLICT (district_id, name_en) DO NOTHING;
-
-    -- Aswan Center
-    INSERT INTO public.departments (district_id, name_ar, name_en) VALUES 
-    (d3, 'شركة المياه', 'Water Co.'), 
-    (d3, 'شركة الكهرباء', 'Electricity Co.'), 
-    (d3, 'طوارئ الغاز', 'Gas Co.'),
-    (d3, 'مركز الشرطة', 'Police Station'),
-    (d3, 'هيئة الإسعاف', 'Ambulance Authority'),
-    (d3, 'هيئة المطافئ', 'Fire Department')
     ON CONFLICT (district_id, name_en) DO NOTHING;
 END $$;
 
