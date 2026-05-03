@@ -97,10 +97,13 @@ CREATE TABLE IF NOT EXISTS public.report_actions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 5. SEED DATA (Aswan Districts and Departments)
+-- 5. SEED DATA (Clean Setup - Only requested districts)
+-- 🛑 Clear all old data to prevent duplicates in UI
+TRUNCATE TABLE public.departments, public.districts CASCADE;
+
 INSERT INTO public.districts (name_ar, name_en) VALUES 
-('قسم أول أسوان', 'First District'),
-('قسم ثان أسوان', 'Second District')
+('قسم أول', 'First District'),
+('قسم ثان', 'Second District')
 ON CONFLICT DO NOTHING;
 
 -- Populate Departments (Multi-District Seed)
@@ -108,8 +111,8 @@ DO $$
 DECLARE
     d1 INT; d2 INT;
 BEGIN
-    SELECT id INTO d1 FROM public.districts WHERE name_en = 'First District';
-    SELECT id INTO d2 FROM public.districts WHERE name_en = 'Second District';
+    SELECT id INTO d1 FROM public.districts WHERE name_ar = 'قسم أول';
+    SELECT id INTO d2 FROM public.districts WHERE name_ar = 'قسم ثان';
 
     -- First District
     INSERT INTO public.departments (district_id, name_ar, name_en) VALUES 
