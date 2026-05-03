@@ -27,6 +27,53 @@ export default function CitizenSignup() {
       return;
     }
 
+    try {
+      // AI Image Verification
+      if (language === 'ar') setError('جاري فحص صورة البطاقة باستخدام الذكاء الاصطناعي...');
+      else setError('Verifying ID card using AI...');
+
+      const tf = await import('@tensorflow/tfjs');
+      const model = await tf.loadLayersModel('/models/tfjs_model/model.json');
+
+      const imgElement = document.createElement('img');
+      imgElement.src = URL.createObjectURL(idImage);
+      
+      await new Promise((resolve, reject) => {
+        imgElement.onload = resolve;
+        imgElement.onerror = reject;
+      });
+
+      // Resize and normalize image (x / 255.0)
+      const tensor = tf.browser.fromPixels(imgElement)
+        .resizeNearestNeighbor([224, 224])
+        .toFloat()
+        .div(tf.scalar(255.0))
+        .expandDims(0);
+
+      const prediction = model.predict(tensor) as any;
+      const score = prediction.dataSync()[0];
+
+      // Cleanup memory
+      tensor.dispose();
+      prediction.dispose();
+
+      if (score > 0.5) {
+        setError(language === 'ar' 
+          ? `عذراً، هذه ليست صورة بطاقة هوية صحيحة. يرجى رفع صورة بطاقة حقيقية.` 
+          : `Uploaded image is not a valid ID card. Please upload a real ID card.`);
+        setLoading(false);
+        return;
+      }
+      
+      setError(''); // Clear verifying message
+      
+    } catch (err: any) {
+      console.error("AI Verification failed:", err);
+      // If AI fails to load or error happens, we can either block or allow.
+      // We will allow it but log error to not block users if model fails to load.
+      setError(''); 
+    }
+
     const email = `${phone.trim()}@citizen.eg`;
 
     try {
