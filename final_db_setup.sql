@@ -37,6 +37,14 @@ CREATE TABLE IF NOT EXISTS public.departments (
     UNIQUE(district_id, name_en)
 );
 
+-- 🛑 FIX: Ensure unique constraint exists for ON CONFLICT (Fixes Error 42P10)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'departments_district_id_name_en_key') THEN
+        ALTER TABLE public.departments ADD CONSTRAINT departments_district_id_name_en_key UNIQUE (district_id, name_en);
+    END IF;
+END $$;
+
 -- 3. SETUP REPORTS (Core Data)
 CREATE TABLE IF NOT EXISTS public.reports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
