@@ -44,6 +44,10 @@ export default function CitizenDashboard() {
   const [lastSeen, setLastSeen] = useState<string>(
     typeof window !== 'undefined' ? localStorage.getItem('lastSeenNotifications') || '1970-01-01' : '1970-01-01'
   );
+  const [expandedNotification, setExpandedNotification] = useState<string | null>(null);
+  const [readNotifications, setReadNotifications] = useState<string[]>(
+    typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('readNotifications') || '[]') : []
+  );
 
   // Resubmit states
   const [resubmitName, setResubmitName] = useState('');
@@ -114,6 +118,23 @@ export default function CitizenDashboard() {
     if (data) setNotifications(data);
   };
 
+  const markAllAsRead = () => {
+    const allIds = notifications.map(n => n.id);
+    setReadNotifications(allIds);
+    localStorage.setItem('readNotifications', JSON.stringify(allIds));
+    const now = new Date().toISOString();
+    setLastSeen(now);
+    localStorage.setItem('lastSeenNotifications', now);
+  };
+
+  const markAsRead = (id: string) => {
+    if (!readNotifications.includes(id)) {
+      const newRead = [...readNotifications, id];
+      setReadNotifications(newRead);
+      localStorage.setItem('readNotifications', JSON.stringify(newRead));
+    }
+  };
+
   const handleTabChange = (newTab: typeof tab) => {
     setTab(newTab);
     if (newTab === 'notifications') {
@@ -124,7 +145,7 @@ export default function CitizenDashboard() {
   };
 
   const unreadCount = notifications.filter(n => 
-    n.resolved_at && new Date(n.resolved_at) > new Date(lastSeen)
+    !readNotifications.includes(n.id) && n.resolved_at && new Date(n.resolved_at) > new Date(lastSeen)
   ).length;
 
   const handleResubmit = async (e: React.FormEvent) => {
@@ -353,30 +374,65 @@ export default function CitizenDashboard() {
 
         {tab === 'notifications' && (
           <div className="space-y-4">
-            <h2 className="text-xl font-black mb-6 flex items-center gap-2"><span>🔔</span> {language === 'ar' ? 'آخر التحديثات الوطنية' : 'Latest National Updates'}</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-black flex items-center gap-2"><span>🔔</span> {language === 'ar' ? 'آخر التحديثات الوطنية' : 'Latest National Updates'}</h2>
+              {unreadCount > 0 && (
+                <button onClick={markAllAsRead} className="text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
+                  {language === 'ar' ? 'تحديد الكل كمقروء' : 'Mark all as read'}
+                </button>
+              )}
+            </div>
+            
             {notifications.length === 0 ? (
               <div className="py-20 text-center bg-white/5 rounded-3xl border border-white/10">
                 <p className="text-white/10 font-bold italic">{language === 'ar' ? 'لا توجد إشعارات حالياً' : 'No notifications yet'}</p>
               </div>
             ) : (
-              notifications.map(n => (
-                <div key={n.id} className="p-5 bg-white/5 border border-white/10 rounded-3xl flex items-start gap-4 hover:bg-white/[0.08] transition-all border-l-4 border-l-emerald-500">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">✨</div>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-white/90 leading-relaxed">
-                      {language === 'ar' 
-                        ? `تم حل مشكلة (${n.type}) في منطقة (${n.districts?.name_ar || 'غير معروف'}) بواسطة (${n.departments?.name_ar || 'الجهة المختصة'})`
-                        : `The (${n.type}) issue in (${n.districts?.name_en || 'Unknown'}) has been resolved by (${n.departments?.name_en || 'Department'})`
-                      }
-                    </p>
-                    <div className="flex items-center gap-4 mt-2">
-                      <span className="text-[10px] text-white/30 uppercase font-black">{new Date(n.resolved_at!).toLocaleDateString()}</span>
-                      <span className="w-1 h-1 rounded-full bg-white/10"></span>
-                      <span className="text-[10px] text-emerald-400/60 font-bold uppercase tracking-widest">{language === 'ar' ? 'تم الإنجاز' : 'COMPLETED'}</span>
+              notifications.map(n => {
+                const isUnread = !readNotifications.includes(n.id) && n.resolved_at && new Date(n.resolved_at) > new Date(lastSeen);
+                const isExpanded = expandedNotification === n.id;
+
+                return (
+                  <div key={n.id} className="flex flex-col gap-2">
+                    <div 
+                      onClick={() => {
+                        setExpandedNotification(isExpanded ? null : n.id);
+                        markAsRead(n.id);
+                      }}
+                      className={`p-5 bg-white/5 border border-white/10 rounded-3xl flex items-start gap-4 hover:bg-white/[0.08] transition-all border-l-4 cursor-pointer relative ${isUnread ? 'border-l-indigo-500 bg-indigo-500/5' : 'border-l-emerald-500'}`}
+                    >
+                      {isUnread && (
+                        <span className="absolute top-4 right-4 w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
+                      )}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isUnread ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                        {isUnread ? '📩' : '✨'}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-white/90 leading-relaxed">
+                          {language === 'ar' 
+                            ? `تم حل مشكلة (${n.type}) في منطقة (${n.districts?.name_ar || 'غير معروف'}) بواسطة (${n.departments?.name_ar || 'الجهة المختصة'})`
+                            : `The (${n.type}) issue in (${n.districts?.name_en || 'Unknown'}) has been resolved by (${n.departments?.name_en || 'Department'})`
+                          }
+                        </p>
+                        <div className="flex items-center gap-4 mt-2">
+                          <span className="text-[10px] text-white/30 uppercase font-black">{new Date(n.resolved_at!).toLocaleDateString()}</span>
+                          <span className="w-1 h-1 rounded-full bg-white/10"></span>
+                          <span className="text-[10px] text-emerald-400/60 font-bold uppercase tracking-widest">{language === 'ar' ? 'انقر للتفاصيل' : 'Click for details'}</span>
+                        </div>
+                      </div>
                     </div>
+
+                    {isExpanded && (
+                      <div className="mx-4 p-5 bg-white/5 border border-white/10 border-t-0 rounded-b-3xl animate-slide-down">
+                        <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">{language === 'ar' ? 'وصف المشكلة الأصلي' : 'Original Problem Description'}</h4>
+                        <p className="text-sm text-white/70 italic leading-relaxed">
+                          "{n.description}"
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
